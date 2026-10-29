@@ -1,0 +1,42 @@
+# ── FRIDAY hands — Python dependencies ───────────────────────────────────────
+# A lean subset of Mark LVI's requirements: only what the MCP server and the
+# bundled actions import. No PyQt, no audio stack — FRIDAY's face and voice
+# live in the browser. `npm run hands:setup` installs this into hands/.venv.
+
+# The MCP server itself.
+mcp>=1.10,<2
+anyio>=4,<5
+
+# Optional Gemini step in some actions (free key in config/api_keys.json).
+google-genai>=2.8.0,<3
+httpx>=0.27,<1
+
+# Web search, weather, YouTube.
+requests>=2.31,<3
+beautifulsoup4>=4.12,<5
+ddgs>=9,<10
+youtube-transcript-api
+
+# Automation / input control.
+pyautogui
+pyperclip
+
+# Vision and media.
+numpy>=1.24,<3
+pillow>=10,<13
+mss>=9,<11
+
+# System, files and documents.
+psutil>=5.9,<8
+send2trash
+pdfplumber
+PyPDF2
+python-docx
+python-pptx
+openpyxl
+
+# ── Windows-only (pip skips these automatically on macOS / Linux) ─────────────
+comtypes;   sys_platform == "win32"
+pycaw;      sys_platform == "win32"
+pywin32;    sys_platform == "win32"
+pywinauto;  sys_platform == "win32"
