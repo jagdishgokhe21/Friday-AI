@@ -263,7 +263,7 @@ def _launch_and_verify(player, spoken: str, launcher_name: str,
             spoken, before, timeout=_LAUNCH_TIMEOUT
         )
         if appeared is not None:
-            _log(player, f"JARVIS: {appeared.label} is open.")
+            _log(player, f"FRIDAY: {appeared.label} is open.")
             return
 
         if not requested:
@@ -275,7 +275,7 @@ def _launch_and_verify(player, spoken: str, launcher_name: str,
                        f"is NOT confirmed open - it may be slow to load, or not "
                        f"installed under that name")
 
-        _log(player, f"JARVIS: {trouble}")
+        _log(player, f"FRIDAY: {trouble}")
         _say(player, "Tell the user, in one short sentence in their own "
                      f"language: {trouble}")
     except Exception as exc:
@@ -342,7 +342,7 @@ def open_app(parameters=None, response=None, player=None,
         # running Store app, and that is the path that ends up serving them.
         for candidate in existing[:8]:
             if appidentity.focus(candidate):
-                _log(player, f"JARVIS: {candidate.label} brought to the front.")
+                _log(player, f"FRIDAY: {candidate.label} brought to the front.")
                 return outcome.done(
                     "open_app", app=spoken, matched=candidate.label,
                     already_running=True, focused=True, verified=True,
@@ -353,7 +353,7 @@ def open_app(parameters=None, response=None, player=None,
 
     launcher_name = appidentity.launcher_name(spoken)
     before = appidentity.snapshot()
-    _log(player, f"JARVIS: Opening {spoken}…")
+    _log(player, f"FRIDAY: Opening {spoken}…")
 
     threading.Thread(
         target=_launch_and_verify,

@@ -74,6 +74,7 @@ FRIDAY picks it automatically.
 | `memory_save` / `memory_recall` / `memory_forget` | ✔ | |
 | `undo` (reverse the last file/setting change) | ✔ | |
 | `open_app` (verifies the app really opened) | ✔ | |
+| `open_url` (new browser tab, works without the extension) | ✔ | |
 | `reminder`, `weather_report`, `web_search`, `youtube_video`, `flight_finder` | ✔ | |
 | `file_processor` (PDF, Word, Excel, images) | ✔ | |
 | `file_controller` | list, read, find, largest, disk_usage, info | create, move, copy, rename, delete, write, organise |

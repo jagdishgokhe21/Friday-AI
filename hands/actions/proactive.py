@@ -15,7 +15,7 @@ class ProactiveEngine:
       - Monitor-topic awareness (what the user is tracking)
       - Recent-session context  (last few turns of the current conversation)
       - Non-repetitive          (rotates context focus to avoid same opener)
-      - Smarter silence gate    (doesn't fire while JARVIS is speaking)
+      - Smarter silence gate    (doesn't fire while FRIDAY is speaking)
 
     Defaults:
       min_silence_secs  — 900 s  (15 min) user must be silent before any check

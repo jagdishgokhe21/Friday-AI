@@ -184,7 +184,7 @@ const schema = {
     ),
 }
 
-const DESCRIPTION = `Put something on the JARVIS heads-up display.
+const DESCRIPTION = `Put something on the FRIDAY heads-up display.
 
 You are designing the panel, not filling in a template — compose the markup for
 the content at hand and choose the animation, position and colour that suit it.
@@ -319,10 +319,10 @@ argument. You know those things. Overrule it whenever you have reason to.`
  */
 export function displayServer(emit, emitBlade) {
   return createSdkMcpServer({
-    name: 'jarvis',
+    name: 'friday',
     version: '1.0.0',
     instructions:
-      'The JARVIS heads-up display. Use `display` to put content on screen ' +
+      'The FRIDAY heads-up display. Use `display` to put content on screen ' +
       'alongside what you say.',
     // Never defer this behind tool search — if the model has to go looking for
     // it, it won't occur to it to show anything.

@@ -284,7 +284,7 @@ const HANDS_SERVER = existsSync(HANDS_PYTHON)
 const HANDS_FREE = new Set([
   'memory_save', 'memory_recall', 'memory_forget', 'undo',
   'weather_report', 'web_search', 'youtube_video', 'flight_finder',
-  'open_app', 'reminder', 'file_processor',
+  'open_app', 'open_url', 'reminder', 'file_processor',
 ])
 const HANDS_READ = {
   file_controller: new Set(['list', 'read', 'find', 'largest', 'disk_usage', 'info']),
@@ -314,7 +314,7 @@ function decideTool(name, input) {
     // without them JARVIS has no display at all. They also have to be named
     // here rather than left to the verb rules below, which read `ui_theme` as
     // a write and would hold the whole surface back behind ALLOW_WRITES.
-    if (server === 'jarvis' || server === 'jarvis_ui') return true
+    if (server === 'friday' || server === 'friday_ui') return true
 
     // The browser server gates itself, at construction: chromeServer() only
     // builds the acting tools — click, type, form input, close tab — when
@@ -323,12 +323,12 @@ function decideTool(name, input) {
     // reading verbs out of the name would only get it wrong: `chrome_navigate`
     // begins with no read verb and would fall to the write branch, which would
     // withhold the one tool the whole server is for.
-    if (server === 'jarvis_chrome') return true
+    if (server === 'friday_chrome') return true
 
     // The camera. Not withheld behind ALLOW_WRITES: looking changes nothing,
     // and the real gate is the browser's own camera permission plus an
     // indicator the user can see for as long as it is live.
-    if (server === 'jarvis_eyes') return true
+    if (server === 'friday_eyes') return true
 
     const tool = mcpToolOf(name)
     if (server === 'friday_hands') return decideHands(tool, input)
@@ -459,7 +459,10 @@ browser or a web page:
   rather than guessing where something is.
 - Before anything that sends, buys, deletes or posts, say in one sentence what
   you are about to do. After it, say what happened.
-- If the browser is unreachable, say so once and carry on without it.
+- New tab: \`chrome_new_tab\`. If the chrome_* tools report the browser is
+  unreachable, open pages with \`open_url\` from your hands instead — it opens a
+  new tab through the operating system, though you cannot read what loads.
+  Mention the extension being unreachable once, only if it stops you.
 
 Your eyes:
 - \`look\` takes one frame and lets you see it. \`watch\` takes several seconds and
@@ -481,6 +484,7 @@ Your eyes:
 
 Your hands — the \`friday_hands\` tools, for this computer itself:
 - \`open_app\` opens an application and reports whether it really appeared.
+  \`open_url\` opens a web page in a new browser tab without the extension.
   \`file_controller\` lists, finds, reads, moves and organises files.
   \`file_processor\` reads PDFs, Word, Excel and images. \`computer_settings\`
   handles volume, brightness and the like; \`computer_control\` types, clicks
@@ -1248,13 +1252,13 @@ wss.on('connection', (socket) => {
     if (!name || (id && seenTools.has(id))) return
     if (id) seenTools.add(id)
     // The display tool isn't work being done, it's the HUD drawing itself —
-    // announcing it would put "jarvis · display" in the tool badge and trigger
+    // announcing it would put "friday · display" in the tool badge and trigger
     // a "working on it" filler for something already on screen.
-    if (name === 'mcp__jarvis__display') return
+    if (name === 'mcp__friday__display') return
     // The ui_* tools are the same case one step further: retinting the
     // interface is the interface talking about itself, not work being done for
     // the user, and the badge would be describing the very thing they can see.
-    if (name.startsWith('mcp__jarvis_ui__')) return
+    if (name.startsWith('mcp__friday_ui__')) return
     if (decideTool(name)) return sendTurn({ type: 'tool', name })
     if (id) heldTools.set(id, name)
   }
@@ -1275,21 +1279,21 @@ wss.on('connection', (socket) => {
       // connection rather than once.
       mcpServers: {
         ...MCP_SERVERS,
-        jarvis: displayServer(
+        friday: displayServer(
           (panel) => send({ type: 'panel', panel }),
           (blade) => send({ type: 'blade', blade }),
         ),
         // The interface controls, on the same socket. A separate key because
         // MCP tool names are `mcp__<key>__<tool>` and one key can only carry
         // one server; the underscore in it is why decideTool and announceTool
-        // both name `jarvis_ui` explicitly.
-        jarvis_ui: uiServer((op, args) => send({ type: 'ui', op, args })),
+        // both name `friday_ui` explicitly.
+        friday_ui: uiServer((op, args) => send({ type: 'ui', op, args })),
         // The user's own Chrome, over the extension's native-host socket. It
         // holds no per-connection state, but it is built here with the rest so
         // the write gate is read once, at the same point as everything else.
-        jarvis_chrome: chromeServer({ allowWrites: ALLOW_WRITES }),
+        friday_chrome: chromeServer({ allowWrites: ALLOW_WRITES }),
         // The camera, which unlike everything else here has to ask and wait.
-        jarvis_eyes: visionServer(ask),
+        friday_eyes: visionServer(ask),
         // The desktop: apps, files, settings, memory and undo, from Mark LVI.
         ...(HANDS_SERVER ? { friday_hands: HANDS_SERVER } : {}),
       },

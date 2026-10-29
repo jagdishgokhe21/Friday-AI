@@ -110,3 +110,4 @@ folder instead.
 | Typing/clicking does nothing | Accessibility permission for Terminal |
 | Screenshot is black | Screen Recording permission for Terminal, then restart her |
 | A tool says no Gemini key | Add the free key (setup step 4) or ignore |
+| "Browser extension not reachable" | Quit Chrome fully (⌘Q) and reopen it, so it starts Claude Code's browser helper. Run `claude --chrome -p ok` once if it was never set up |

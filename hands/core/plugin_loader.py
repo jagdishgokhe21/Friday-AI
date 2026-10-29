@@ -126,7 +126,7 @@ class PluginRegistry:
             self._logger(f"Plugin '{name}' crashed during run(): {e}")
             self._notify(f"Plugin '{name}' failed — see the console for details.")
             traceback.print_exc()
-            return f"Sir, the '{name}' plugin failed: {e}"
+            return f"Boss, the '{name}' plugin failed: {e}"
 
     # -- called by ui.py's settings tab to render per-plugin config forms --
     def settings_schemas(self) -> list[dict]:

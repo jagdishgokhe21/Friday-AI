@@ -14,7 +14,7 @@ Design notes
   and a remote desktop session.
 * **Lip-sync comes from the audio pipeline, not from the avatar.** `main.py`
   already computes a real RMS level off the PCM (`_pcm_level`) for both the mic
-  and JARVIS's own output. The avatar just consumes that number, so there is no
+  and FRIDAY's own output. The avatar just consumes that number, so there is no
   second audio path to fall out of sync. The mouth only tracks the level while
   JARVIS is *speaking* — during listening the same level drives the aura, so the
   head never lip-syncs to the user's voice.
@@ -207,7 +207,7 @@ class HoloAvatar:
 
     def _mouth_step(self, dt: float, amp: float, live: bool,
                     v_open: float | None, v_level: float | None) -> None:
-        """One increment of the jaw. Called once per viseme frame while JARVIS
+        """One increment of the jaw. Called once per viseme frame while FRIDAY
         speaks, once per rendered frame otherwise."""
         if v_open is None:
             shape = 1.0
