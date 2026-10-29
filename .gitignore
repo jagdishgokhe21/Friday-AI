@@ -1,0 +1,44 @@
+# ── Secrets. Committing any of these publishes them (this repo is PUBLIC). ────
+.env
+.env.*
+!.env.example
+*.local
+hands/config/api_keys.json
+hands/config/certs/
+hands/config/whatsapp_web/
+**/token*.json
+**/client_secret*.json
+*credentials*.json
+
+# ── Personal data the assistant accumulates about you ─────────────────────────
+hands/memory/long_term.json
+hands/memory/*.db
+
+# ── Node ──────────────────────────────────────────────────────────────────────
+node_modules
+dist
+dist-ssr
+*.log
+npm-debug.log*
+# Copied out of node_modules by scripts/start.mjs — 34MB of build output.
+public/mediapipe/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# ── Editors and OS ────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.sw?
+Thumbs.db
+
+# ── Runtime output ────────────────────────────────────────────────────────────
+logs/
+downloads/
+screenshots/
