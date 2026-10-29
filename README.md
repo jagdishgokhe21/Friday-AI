@@ -39,6 +39,8 @@ It joins two open projects into one:
 
 ## Quick start
 
+Full day-to-day instructions: **[GUIDE.md](GUIDE.md)**.
+
 ```bash
 npm install
 npm run hands:setup   # once: Python venv for the desktop hands
