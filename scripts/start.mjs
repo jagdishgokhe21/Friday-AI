@@ -1,12 +1,12 @@
 /**
- * One command to run JARVIS: the bridge (brain) and the Vite dev server (face)
+ * One command to run FRIDAY: the bridge (brain) and the Vite dev server (face)
  * together, so a student types `npm start` and nothing else.
  *
  * Two long-running processes normally mean two terminals. This launcher spawns
  * both as children, tags their output so you can tell them apart, and shuts
  * them down together on Ctrl-C — no extra dependency, just Node.
  *
- * Pass --writes to allow JARVIS to take real actions (drive the phone, the
+ * Pass --writes to allow FRIDAY to take real actions (drive the phone, the
  * browser, send things): `npm start -- --writes`.
  */
 
@@ -105,9 +105,9 @@ process.on('SIGTERM', () => shutdown(0))
  * without widening what the bridge trusts by default.
  */
 const port = process.env.PORT
-const bridgeEnv = writes ? { JARVIS_ALLOW_WRITES: '1' } : {}
+const bridgeEnv = writes ? { FRIDAY_ALLOW_WRITES: '1' } : {}
 if (port) {
-  bridgeEnv.JARVIS_ALLOWED_ORIGINS = `http://localhost:${port},http://127.0.0.1:${port}`
+  bridgeEnv.FRIDAY_ALLOWED_ORIGINS = `http://localhost:${port},http://127.0.0.1:${port}`
   console.log(`  serving the face on port ${port}; the bridge will accept it.\n`)
 }
 

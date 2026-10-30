@@ -1,5 +1,5 @@
 """
-JARVIS action — open an application, and know whether it actually opened.
+FRIDAY action — open an application, and know whether it actually opened.
 
 WHAT WAS WRONG WITH THIS FILE
     It answered "Opened Spotify." whenever its launcher returned True, and on

@@ -16,7 +16,7 @@ Design notes
   already computes a real RMS level off the PCM (`_pcm_level`) for both the mic
   and FRIDAY's own output. The avatar just consumes that number, so there is no
   second audio path to fall out of sync. The mouth only tracks the level while
-  JARVIS is *speaking* — during listening the same level drives the aura, so the
+  FRIDAY is *speaking* — during listening the same level drives the aura, so the
   head never lip-syncs to the user's voice.
 
 The renderer is theme-agnostic: `paint()` takes its colours as arguments, which
@@ -72,7 +72,7 @@ _TAU_REST = 0.055     # settling back to rest after speech ends
 _TAU_SHAPE = 0.018    # viseme openness following the schedule
 
 # Only the microphone path needs a level floor: it has one coarse RMS and no way
-# to tell speech from room tone. JARVIS's own voice arrives as a per-20 ms
+# to tell speech from room tone. FRIDAY's own voice arrives as a per-20 ms
 # schedule whose silences are already silent, so it needs no floor and must not
 # have one — a floor there swallows the gaps between words.
 _MIC_FLOOR = 0.14
@@ -268,7 +268,7 @@ class HoloAvatar:
 
         # Idle sway. The phase is *integrated* rather than taken as
         # sin(t * rate * speed): multiplying absolute time by a speed that
-        # changes when JARVIS starts or stops talking jumps the phase by
+        # changes when FRIDAY starts or stops talking jumps the phase by
         # t * rate * delta, which after a minute of uptime is several radians
         # and visibly teleports the head the instant a sentence ends.
         speed = (1.0 if not muted else 0.55) * (1.25 if live else 1.0)

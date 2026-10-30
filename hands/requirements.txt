@@ -7,6 +7,11 @@
 mcp>=1.10,<2
 anyio>=4,<5
 
+# Her ears: Whisper on this machine (hands/stt_worker.py). av is held below 16
+# because faster-whisper 1.2 passes an argument that later versions removed.
+faster-whisper>=1.2,<2
+av>=15,<16
+
 # Optional Gemini step in some actions (free key in config/api_keys.json).
 google-genai>=2.8.0,<3
 httpx>=0.27,<1

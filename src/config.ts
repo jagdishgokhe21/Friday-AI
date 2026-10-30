@@ -1,5 +1,5 @@
 /**
- * JARVIS configuration.
+ * FRIDAY configuration.
  *
  * Everything here is read from Vite env vars (.env.local) so no secrets are
  * committed. See .env.example for the full list.
@@ -31,7 +31,7 @@ function choice<T extends string>(
   if (value === undefined) return fallback
   if ((allowed as readonly string[]).includes(value)) return value as T
   console.warn(
-    `[jarvis] ${name}="${value}" is not one of ${allowed.join(' | ')} — using "${fallback}".`,
+    `[friday] ${name}="${value}" is not one of ${allowed.join(' | ')} — using "${fallback}".`,
   )
   return fallback
 }
@@ -42,7 +42,7 @@ function flag(name: string, raw: unknown, fallback: boolean): boolean {
   if (value === undefined) return fallback
   if (value === 'true' || value === '1') return true
   if (value === 'false' || value === '0') return false
-  console.warn(`[jarvis] ${name}="${value}" is not true or false — using ${fallback}.`)
+  console.warn(`[friday] ${name}="${value}" is not true or false — using ${fallback}.`)
   return fallback
 }
 
@@ -51,7 +51,7 @@ function flag(name: string, raw: unknown, fallback: boolean): boolean {
  *
  *   'bridge' — run `npm run bridge` alongside the app. Authenticates off your
  *              existing Claude Code login (no API key), and every MCP server in
- *              your Claude Code config is available to JARVIS, including local
+ *              your Claude Code config is available to FRIDAY, including local
  *              ones like higgsfield, elevenlabs, android and playwright.
  *
  *   'direct' — the browser calls the Claude API itself. Nothing to run and it
@@ -128,6 +128,9 @@ export const KOKORO_VOICE = choice(
   'bf_emma',
 )
 
+/** The accent Chrome's recogniser expects, when it is the fallback for hearing. */
+export const SPEECH_LANG = str(import.meta.env.VITE_SPEECH_LANG) ?? 'en-IN'
+
 export const env = {
   anthropicKey: str(import.meta.env.VITE_ANTHROPIC_API_KEY) ?? '',
   elevenKey: str(import.meta.env.VITE_ELEVENLABS_API_KEY) ?? '',
@@ -150,8 +153,8 @@ export const FAST_MODE = true
 /**
  * Wake-word engine.
  *   'speech'    — zero setup, uses the browser's SpeechRecognition to listen for
- *                 "hey jarvis". Chrome/Edge only, audio goes to Google.
- *   'porcupine' — recommended. Runs offline in WASM, "Jarvis" is a built-in
+ *                 "hey friday". Chrome/Edge only, audio goes to Google.
+ *   'porcupine' — recommended. Runs offline in WASM, "Friday" is a built-in
  *                 keyword, far fewer false triggers. Needs a free AccessKey
  *                 from console.picovoice.ai.
  */
@@ -178,7 +181,7 @@ export type McpServer = {
 /**
  * These are passed to the Messages API `mcp_servers` parameter. Anthropic dials
  * the servers itself, so there is no CORS to fight and no local bridge to run —
- * which is what makes a backend-free JARVIS possible.
+ * which is what makes a backend-free FRIDAY possible.
  *
  * Only *remote HTTP* MCP servers work here. Local stdio servers (filesystem,
  * Blender, Playwright) need a machine to run on and are out of scope for a
@@ -252,7 +255,7 @@ export const MCP_SERVERS: McpServer[] = [
     enabled: Boolean(str(import.meta.env.VITE_SENTRY_TOKEN)),
   },
   // Home Assistant is self-hosted, so this needs a publicly reachable URL
-  // (Nabu Casa Cloud, or a Cloudflare tunnel). Worth the setup — "Jarvis, dim
+  // (Nabu Casa Cloud, or a Cloudflare tunnel). Worth the setup — "Friday, dim
   // the lights" with the room actually dimming is the best shot in the video.
   // Both halves are required: an instance reachable from Anthropic's servers
   // with no bearer token attached is one that answers 401 to every tool call,

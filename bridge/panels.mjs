@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { probeUrl } from './page.mjs'
 
 /**
- * The `display` tool — JARVIS's screen.
+ * The `display` tool — FRIDAY's screen.
  *
  * Rather than filling in a fixed set of card templates, the model authors the
  * panel itself: markup, layout, emphasis, and which animation it arrives with.
@@ -340,7 +340,7 @@ export function displayServer(emit, emitBlade) {
         // the child element rather than the parent.
         const text = String(args.html ?? '').replace(/<[^>]*>/g, '').trim()
         if (!text && !/<(img|video|iframe|source)\b/i.test(args.html ?? '')) {
-          console.warn('[jarvis] display called with an empty body:', args.title)
+          console.warn('[friday] display called with an empty body:', args.title)
           return {
             isError: true,
             content: [

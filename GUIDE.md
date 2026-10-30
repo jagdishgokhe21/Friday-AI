@@ -33,10 +33,14 @@ folder instead.
 
 ## Talking to her
 
-- Say **"Hey Friday"**, then your request in the same breath, e.g.
-  *"Hey Friday, open Excel."*
-- After she answers she keeps listening for a follow-up — no need to repeat
-  her name.
+- After her introduction she is **already listening**. Just talk.
+- She stays awake for **two minutes** after each answer, so you only need her
+  name when she has gone to standby: *"Hey Friday, open Excel."*
+- Say **"that's all"**, **"go to sleep"** or **"bye"** to put her on standby.
+- Talk normally. Your speech is understood on this Mac by Whisper, and she
+  keeps hearing you while Chrome is behind other windows.
+- Nearby conversation can count as a request while she is awake, so send her
+  to standby if people are talking around you.
 - **Interrupt** by simply talking over her.
 - **Space bar** = talk without the wake word.
 - She calls you **boss** and keeps answers short. Ask "explain in detail" when
@@ -107,6 +111,7 @@ folder instead.
 | She says "Not logged in" | Run `claude` in Terminal and log in |
 | She looks alive but never answers | Must be a real Chrome window; check the Terminal window for errors |
 | "Blocked: read-only mode" | You started with `npm start`; use the Desktop launcher |
+| She mishears or needs a loud voice | System Settings → Sound → Input → raise **Input volume** to about 75%. Press **D** to watch the mic level |
 | Typing/clicking does nothing | Accessibility permission for Terminal |
 | Screenshot is black | Screen Recording permission for Terminal, then restart her |
 | A tool says no Gemini key | Add the free key (setup step 4) or ignore |

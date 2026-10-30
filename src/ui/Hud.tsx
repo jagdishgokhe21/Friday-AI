@@ -57,7 +57,7 @@ function scramble(s: string, seed: number) {
 }
 
 /**
- * JARVIS's lines, arriving the way a computer would produce them.
+ * FRIDAY's lines, arriving the way a computer would produce them.
  *
  * The hard part is not the effect, it is that the text underneath is *live*.
  * The store appends a token at a time, so this component re-renders dozens of
@@ -160,7 +160,7 @@ export function Hud() {
   const looking = useStore((s) => s.looking)
   const ui = useStore((s) => s.ui)
 
-  // accentFor folds JARVIS's overrides in over the phase colour, so one
+  // accentFor folds FRIDAY's overrides in over the phase colour, so one
   // variable on the root carries a theme change into every .hud-* rule without
   // a single component knowing a theme exists.
   const colour = accentFor(phase, ui)
@@ -278,7 +278,7 @@ export function Hud() {
                     transmitted from anywhere — dressing it up as machine
                     output would be a lie about where the words came from. */}
                 <span className="log-text">
-                  {t.role === 'jarvis' ? <DecodeText text={t.text} /> : t.text}
+                  {t.role === 'friday' ? <DecodeText text={t.text} /> : t.text}
                 </span>
               </motion.div>
             ))}
@@ -312,7 +312,7 @@ export function Hud() {
 
       <footer className="hud-bottom">
         <span className="hint">
-          say <b>“hey jarvis”</b> · <kbd>Space</kbd> to talk · <kbd>G</kbd> hands
+          say <b>“hey friday”</b> · <kbd>Space</kbd> to talk · <kbd>G</kbd> hands
           {voice && (
             <>
               {' · '}

@@ -29,6 +29,9 @@ if (!existsSync(python)) {
 run(python, ['-m', 'pip', 'install', '--upgrade', 'pip']);
 run(python, ['-m', 'pip', 'install', '-r', 'requirements.txt']);
 
-console.log('\nHands ready. Restart the bridge and FRIDAY can reach the desktop.');
+// Fetch the speech model now, so the first thing she hears does not wait on it.
+run(python, ['-c', "from faster_whisper import WhisperModel; WhisperModel('small.en', device='cpu', compute_type='int8')"]);
+
+console.log('\nHands and hearing ready. Restart the bridge and FRIDAY can reach the desktop.');
 console.log('macOS: allow your terminal under System Settings → Privacy & Security →');
 console.log('Accessibility and Screen Recording, or typing, clicking and screenshots will fail.');

@@ -2,7 +2,7 @@ import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk'
 import { z } from 'zod'
 
 /**
- * The `ui_*` tools — JARVIS's control of his own face.
+ * The `ui_*` tools — FRIDAY's control of his own face.
  *
  * `display` gives him a screen to put things on. This gives him the screen
  * itself: the colour the room is lit in, the size and temper of the reactor,
@@ -273,7 +273,7 @@ const chromeSchema = {
   transcript: looseBool('The running conversation log.'),
   tool_badge: looseBool('The active-tool readout under the reactor.'),
   suggestions: looseBool('The "try saying…" hint.'),
-  brand: looseBool('The J.A.R.V.I.S. wordmark and status line.'),
+  brand: looseBool('The F.R.I.D.A.Y. wordmark and status line.'),
 }
 
 const CHROME_DESCRIPTION = `Show or hide the furniture around the display.

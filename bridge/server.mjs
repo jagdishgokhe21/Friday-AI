@@ -1,5 +1,5 @@
 /**
- * JARVIS local bridge.
+ * FRIDAY local bridge.
  *
  * Runs the Claude Agent SDK — Claude Code as a library — and exposes one turn
  * of conversation over a WebSocket. The browser stays the face and the voice;
@@ -28,8 +28,9 @@ import { dirname, isAbsolute, join, relative, resolve as resolvePath } from 'nod
 import { fileURLToPath } from 'node:url'
 import { openRemote, proxyError, vetTarget, PROXY_UA } from './net.mjs'
 import { probeUrl, renderPage } from './page.mjs'
+import { startWhisper } from './whisper.mjs'
 
-const PORT = Number(process.env.JARVIS_BRIDGE_PORT ?? 8787)
+const PORT = Number(process.env.FRIDAY_BRIDGE_PORT ?? 8787)
 
 /**
  * A crash here takes the whole assistant down mid-sentence, and most of what
@@ -38,7 +39,7 @@ const PORT = Number(process.env.JARVIS_BRIDGE_PORT ?? 8787)
  * its own error to the browser.
  */
 process.on('unhandledRejection', (err) => {
-  console.error('[jarvis] unhandled rejection:', err)
+  console.error('[friday] unhandled rejection:', err)
 })
 
 /**
@@ -54,15 +55,15 @@ process.on('unhandledRejection', (err) => {
  *
  * A missing Origin means a non-browser client — curl, a script, a native app.
  * That is also exactly what local malware looks like, so it is refused on the
- * socket unless JARVIS_ALLOW_NO_ORIGIN=1 says otherwise.
+ * socket unless FRIDAY_ALLOW_NO_ORIGIN=1 says otherwise.
  */
 const EXTRA_ORIGINS = new Set(
-  (process.env.JARVIS_ALLOWED_ORIGINS ?? '')
+  (process.env.FRIDAY_ALLOWED_ORIGINS ?? '')
     .split(',')
     .map((s) => s.trim().replace(/\/+$/, ''))
     .filter(Boolean),
 )
-const ALLOW_NO_ORIGIN = process.env.JARVIS_ALLOW_NO_ORIGIN === '1'
+const ALLOW_NO_ORIGIN = process.env.FRIDAY_ALLOW_NO_ORIGIN === '1'
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 
@@ -70,7 +71,7 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
  * Vite takes the next free port when 5173 is busy and `vite preview` starts at
  * 4173, so the dev ranges are allowed rather than two exact numbers. Anything
  * else — including localhost on a port some other app is serving — has to be
- * named in JARVIS_ALLOWED_ORIGINS.
+ * named in FRIDAY_ALLOWED_ORIGINS.
  */
 const isDevPort = (port) =>
   (port >= 5173 && port <= 5199) || (port >= 4173 && port <= 4199)
@@ -94,16 +95,16 @@ function originAllowed(origin) {
  * click and the model can't pause for one. So the bridge decides.
  *
  * Read-only and generative tools run freely. Anything that writes to disk,
- * runs a shell, or changes the world waits for JARVIS_ALLOW_WRITES=1. Start
+ * runs a shell, or changes the world waits for FRIDAY_ALLOW_WRITES=1. Start
  * without it, and turn it on once you trust what you're demoing.
  */
-const ALLOW_WRITES = process.env.JARVIS_ALLOW_WRITES === '1'
+const ALLOW_WRITES = process.env.FRIDAY_ALLOW_WRITES === '1'
 
 /**
- * The orchestrator model. Override with JARVIS_MODEL to trade quality for pace
+ * The orchestrator model. Override with FRIDAY_MODEL to trade quality for pace
  * — claude-sonnet-5 is noticeably snappier on camera if Opus feels slow.
  */
-const MODEL = process.env.JARVIS_MODEL ?? 'claude-opus-5-5'
+const MODEL = process.env.FRIDAY_MODEL ?? 'claude-opus-5-5'
 
 /**
  * How hard the model thinks before answering.
@@ -120,7 +121,7 @@ const MODEL = process.env.JARVIS_MODEL ?? 'claude-opus-5-5'
  * matters more than pace; drop back to 'low' when filming and every second of
  * dead air shows.
  */
-const EFFORT = process.env.JARVIS_EFFORT ?? 'high'
+const EFFORT = process.env.FRIDAY_EFFORT ?? 'high'
 
 /**
  * Both spellings of every renamed built-in are listed on purpose. The SDK
@@ -270,6 +271,11 @@ const HANDS_SERVER = existsSync(HANDS_PYTHON)
     }
   : null
 
+/** Her ears: Whisper on this machine, from the same venv. See whisper.mjs. */
+const whisper = HANDS_SERVER
+  ? startWhisper(HANDS_PYTHON, join(HANDS_DIR, 'stt_worker.py'))
+  : null
+
 /**
  * The verb rules above read a tool's NAME, and a hands tool is a whole
  * category: `file_controller` lists a folder and deletes one under the same
@@ -311,7 +317,7 @@ function decideTool(name, input) {
   if (server) {
     // The HUD, and the interface controls beside it. Both run in this process
     // and draw on our own screen, so neither is something to withhold —
-    // without them JARVIS has no display at all. They also have to be named
+    // without them FRIDAY has no display at all. They also have to be named
     // here rather than left to the verb rules below, which read `ui_theme` as
     // a write and would hold the whole surface back behind ALLOW_WRITES.
     if (server === 'friday' || server === 'friday_ui') return true
@@ -537,7 +543,7 @@ function elevenKey() {
   }
 }
 
-const VOICE_ID = process.env.JARVIS_VOICE_ID ?? 'Xb7hH8MSUJpSbSDYk0k2'
+const VOICE_ID = process.env.FRIDAY_VOICE_ID ?? 'Xb7hH8MSUJpSbSDYk0k2'
 
 /**
  * Where /file is permitted to read from, and how big a read may get.
@@ -566,7 +572,7 @@ const FILE_ROOTS = [
   // still write it to /tmp. Dropping one of them loses real panels.
   tmpdir(),
   '/tmp',
-  ...(process.env.JARVIS_FILE_ROOTS ?? '')
+  ...(process.env.FRIDAY_FILE_ROOTS ?? '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean),
@@ -590,7 +596,7 @@ const withinRoots = (real) =>
 /**
  * Remote media, fetched by the bridge instead of by the page.
  *
- * JARVIS used to refuse to show anything he found on the web, and the refusal
+ * FRIDAY used to refuse to show anything he found on the web, and the refusal
  * was not squeamishness — a bare <img src="https://some-cdn/..."> in a panel
  * genuinely did not work. Three reasons, and all three are fixed by moving the
  * fetch to this side of the wire:
@@ -703,7 +709,7 @@ async function proxyRemote(req, res, cors, { kinds, maxBytes, timeoutMs, ranged 
     if (sent > maxBytes) {
       // Headers went out long ago, so a truncated body is the only way left to
       // say no. The player sees a short read; we see this line in the log.
-      console.warn(`[jarvis] proxy cut ${target.href} at ${maxBytes} bytes`)
+      console.warn(`[friday] proxy cut ${target.href} at ${maxBytes} bytes`)
       upstream.destroy()
       res.destroy()
       return
@@ -745,7 +751,7 @@ const http = await import('node:http')
 const handleRequest = async (req, res) => {
   const origin = req.headers.origin
   if (origin && !originAllowed(origin)) {
-    console.warn(`[jarvis] refused http request from origin ${origin}`)
+    console.warn(`[friday] refused http request from origin ${origin}`)
     res.writeHead(403, { vary: 'origin' })
     return res.end('forbidden')
   }
@@ -758,13 +764,13 @@ const handleRequest = async (req, res) => {
 
   if (req.method === 'GET' && req.url === '/health') {
     // The browser reads this once at boot to decide which voice engine to use.
-    // Both premium paths ride the same ElevenLabs key, so both flags track it:
-    // with a key the app transcribes with Scribe and speaks with ElevenLabs;
-    // without one it falls back to the browser's own recogniser and voice, so a
-    // student with nothing configured still has a working assistant.
+    // Speech tracks the ElevenLabs key. Hearing has two server-side engines,
+    // Scribe with a key and local Whisper without one; `stt` means either is
+    // there, and the browser's own recogniser is the last resort for neither.
     const eleven = Boolean(elevenKey())
+    const stt = eleven || Boolean(whisper?.available())
     res.writeHead(200, { ...cors, 'content-type': 'application/json' })
-    return res.end(JSON.stringify({ ok: true, tts: eleven, stt: eleven }))
+    return res.end(JSON.stringify({ ok: true, tts: eleven, stt }))
   }
 
   // Serve local image files to the page. Screenshots and generated art land on
@@ -973,9 +979,9 @@ const handleRequest = async (req, res) => {
   // touches this endpoint; this is only for the words.
   if (req.method === 'POST' && req.url === '/stt') {
     const key = elevenKey()
-    if (!key) {
+    if (!key && !whisper?.available()) {
       res.writeHead(503, cors)
-      return res.end('no elevenlabs key')
+      return res.end('no speech engine')
     }
 
     const type = req.headers['content-type'] || 'audio/webm'
@@ -1002,6 +1008,17 @@ const handleRequest = async (req, res) => {
     if (size < 1200) {
       res.writeHead(200, { ...cors, 'content-type': 'application/json' })
       return res.end(JSON.stringify({ text: '' }))
+    }
+
+    if (!key) {
+      try {
+        const text = await whisper.transcribe(Buffer.concat(chunks), type)
+        res.writeHead(200, { ...cors, 'content-type': 'application/json' })
+        return res.end(JSON.stringify({ text }))
+      } catch (err) {
+        res.writeHead(502, cors)
+        return res.end(String(err?.message ?? err))
+      }
     }
 
     try {
@@ -1050,7 +1067,7 @@ const server = http.createServer((req, res) => {
   // unhandled rejection and leave the browser waiting on a socket that is
   // never going to answer.
   handleRequest(req, res).catch((err) => {
-    console.error('[jarvis] request failed:', err)
+    console.error('[friday] request failed:', err)
     if (!res.headersSent) res.writeHead(500)
     res.end()
   })
@@ -1065,13 +1082,13 @@ const wss = new WebSocketServer({
   verifyClient: ({ origin, req }, done) => {
     const path = (req.url ?? '/').split('?')[0]
     if (path !== '/' && path !== '/ws') {
-      console.warn(`[jarvis] rejected websocket on path ${path}`)
+      console.warn(`[friday] rejected websocket on path ${path}`)
       return done(false, 403, 'Forbidden')
     }
     if (!originAllowed(origin)) {
       console.warn(
-        `[jarvis] rejected websocket from origin ${origin ?? '(none)'}` +
-          ' — set JARVIS_ALLOWED_ORIGINS to permit it',
+        `[friday] rejected websocket from origin ${origin ?? '(none)'}` +
+          ' — set FRIDAY_ALLOWED_ORIGINS to permit it',
       )
       return done(false, 403, 'Forbidden')
     }
@@ -1080,14 +1097,14 @@ const wss = new WebSocketServer({
 })
 server.listen(PORT)
 
-console.log(`[jarvis] bridge listening on ws://localhost:${PORT}`)
+console.log(`[friday] bridge listening on ws://localhost:${PORT}`)
 console.log(
-  `[jarvis] speech ${elevenKey() ? 'via ElevenLabs (key from MCP config)' : 'using browser fallback voice'}`,
+  `[friday] speech ${elevenKey() ? 'via ElevenLabs (key from MCP config)' : 'using browser fallback voice'}`,
 )
-console.log(`[jarvis] model ${MODEL} · effort ${EFFORT}`)
+console.log(`[friday] model ${MODEL} · effort ${EFFORT}`)
 console.log(
-  `[jarvis] writes ${ALLOW_WRITES ? 'ENABLED' : 'disabled'}` +
-    (ALLOW_WRITES ? '' : ' — set JARVIS_ALLOW_WRITES=1 to permit shell/file/device actions'),
+  `[friday] writes ${ALLOW_WRITES ? 'ENABLED' : 'disabled'}` +
+    (ALLOW_WRITES ? '' : ' — set FRIDAY_ALLOW_WRITES=1 to permit shell/file/device actions'),
 )
 // Asynchronous, so it lands a beat after the rest of the banner. Worth printing
 // at all because an extension that is simply not running is indistinguishable
@@ -1096,13 +1113,13 @@ console.log(
 void chromeAvailable().then((ok) => {
   console.log(
     ok
-      ? `[jarvis] browser control ready${ALLOW_WRITES ? '' : ' (reading only — clicking and typing need JARVIS_ALLOW_WRITES=1)'}`
-      : '[jarvis] browser control unavailable — open Chrome with the Claude extension enabled',
+      ? `[friday] browser control ready${ALLOW_WRITES ? '' : ' (reading only — clicking and typing need FRIDAY_ALLOW_WRITES=1)'}`
+      : '[friday] browser control unavailable — open Chrome with the Claude extension enabled',
   )
 })
 
 console.log(
-  '[jarvis] accepting local dev origins' +
+  '[friday] accepting local dev origins' +
     (EXTRA_ORIGINS.size ? ` plus ${[...EXTRA_ORIGINS].join(', ')}` : '') +
     (ALLOW_NO_ORIGIN ? ' and clients that send no origin' : ''),
 )
@@ -1120,7 +1137,7 @@ const RESULT_FAILURES = {
 }
 
 wss.on('connection', (socket) => {
-  console.log('[jarvis] client connected')
+  console.log('[friday] client connected')
 
   // Answer the HUD straight away rather than making it wait for the agent's
   // first turn. Refined later by the real init message.
@@ -1330,7 +1347,7 @@ wss.on('connection', (socket) => {
       effort: EFFORT,
       maxTurns: 24,
       permissionMode: 'default',
-      // Without this the SDK only emits whole assistant messages, and JARVIS
+      // Without this the SDK only emits whole assistant messages, and FRIDAY
       // would sit silent until the entire answer was written. Partial events
       // are what let speech start on the first finished sentence.
       includePartialMessages: true,
@@ -1345,7 +1362,7 @@ wss.on('connection', (socket) => {
       // reliable; an absence of a call here is not proof nothing ran.
       canUseTool: async (toolName, input) => {
         const ok = decideTool(toolName, input)
-        console.log(`[jarvis] tool ${toolName} -> ${ok ? 'allow' : 'deny'}`)
+        console.log(`[friday] tool ${toolName} -> ${ok ? 'allow' : 'deny'}`)
         return ok
           ? { behavior: 'allow' }
           : {
@@ -1365,7 +1382,7 @@ wss.on('connection', (socket) => {
   ;(async () => {
     try {
       for await (const msg of session) {
-        if (process.env.JARVIS_DEBUG === '1') {
+        if (process.env.FRIDAY_DEBUG === '1') {
           console.log('[msg]', msg.type, msg.event?.type ?? '')
         }
 
@@ -1374,7 +1391,7 @@ wss.on('connection', (socket) => {
           // This is the ONLY place spoken text arrives: there is no top-level
           // text_delta message in the SDK union and the 'assistant' message
           // carries no deltas either. Turn includePartialMessages off and
-          // JARVIS goes completely mute.
+          // FRIDAY goes completely mute.
           case 'stream_event': {
             const ev = msg.event
             if (
@@ -1422,7 +1439,7 @@ wss.on('connection', (socket) => {
             // A result is not automatically a success. The error subtypes
             // carry no `result` field at all, so reporting them as 'done' with
             // empty text is indistinguishable from a turn that simply had
-            // nothing to say — the HUD stops spinning and JARVIS stands there
+            // nothing to say — the HUD stops spinning and FRIDAY stands there
             // silent. Say what happened instead.
             if (msg.subtype === 'success') {
               sendTurn({
@@ -1432,7 +1449,7 @@ wss.on('connection', (socket) => {
               })
             } else {
               console.error(
-                `[jarvis] turn failed: ${msg.subtype}`,
+                `[friday] turn failed: ${msg.subtype}`,
                 msg.errors ?? '',
               )
               sendTurn({
@@ -1458,13 +1475,13 @@ wss.on('connection', (socket) => {
                 .filter((s) => s.status !== 'needs-auth' && s.status !== 'failed')
                 .map((s) => s.name)
               send({ type: 'ready', servers: usable })
-              console.log(`[jarvis] ${usable.length} MCP servers available`)
+              console.log(`[friday] ${usable.length} MCP servers available`)
             }
             break
         }
       }
     } catch (err) {
-      console.error('[jarvis] session error:', err)
+      console.error('[friday] session error:', err)
       send({ type: 'error', message: String(err?.message ?? err) })
       // The stream is finished either way — nothing will ever be read from it
       // again. Leaving the socket open would leave the client believing it has
@@ -1537,7 +1554,7 @@ wss.on('connection', (socket) => {
   })
 
   socket.on('close', () => {
-    console.log('[jarvis] client disconnected')
+    console.log('[friday] client disconnected')
     closed = true
     deliver?.(null)
     session.close?.()

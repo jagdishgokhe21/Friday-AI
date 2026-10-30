@@ -11,7 +11,7 @@
  * carries four British male voices, which is what this project actually wants.
  *
  * The cost is a one-time ~86MB model download, cached by the browser
- * afterwards. It's fetched during the boot sequence so the first "Hey Jarvis"
+ * afterwards. It's fetched during the boot sequence so the first "Hey Friday"
  * isn't waiting on it, and anything that goes wrong falls back to Daniel.
  */
 
@@ -52,7 +52,7 @@ export const VOICES = ['bf_emma', 'bf_isabella', 'bf_alice', 'bf_lily'] as const
 function resolveVoice(): string {
   if ((VOICES as readonly string[]).includes(KOKORO_VOICE)) return KOKORO_VOICE
   console.warn(
-    `[jarvis] VITE_KOKORO_VOICE="${KOKORO_VOICE}" is not one of ${VOICES.join(', ')} — using ${VOICES[0]}.`,
+    `[friday] VITE_KOKORO_VOICE="${KOKORO_VOICE}" is not one of ${VOICES.join(', ')} — using ${VOICES[0]}.`,
   )
   return VOICES[0]
 }
@@ -96,7 +96,7 @@ export async function load(): Promise<Kokoro | null> {
       model = tts as unknown as Kokoro
       return model
     } catch (err) {
-      console.warn('[jarvis] kokoro unavailable, using the system voice:', err)
+      console.warn('[friday] kokoro unavailable, using the system voice:', err)
       lastError = String((err as Error)?.message ?? err)
       failed = true
       return null
@@ -124,7 +124,7 @@ export async function speak(text: string): Promise<string | null> {
   } catch (err) {
     // Surfaced rather than swallowed: a silent null here just looks like the
     // voice quietly reverting to the system one with no explanation.
-    console.error('[jarvis] kokoro generation failed:', err)
+    console.error('[friday] kokoro generation failed:', err)
     lastError = String((err as Error)?.message ?? err)
     failures++
     if (failures >= MAX_FAILURES) {
@@ -132,7 +132,7 @@ export async function speak(text: string): Promise<string | null> {
       // keeps routing every sentence here and every sentence keeps throwing.
       failed = true
       console.warn(
-        `[jarvis] kokoro failed ${failures} times running — the system voice from here on.`,
+        `[friday] kokoro failed ${failures} times running — the system voice from here on.`,
       )
     }
     return null

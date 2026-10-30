@@ -2,7 +2,7 @@ import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk'
 import { z } from 'zod'
 
 /**
- * JARVIS's eyes.
+ * FRIDAY's eyes.
  *
  * Everything else in this bridge pushes: a panel appears, a blade opens, the
  * interface retints. This is the one capability that has to ask and wait — the

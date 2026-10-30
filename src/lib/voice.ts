@@ -1,4 +1,4 @@
-import { BRIDGE_HTTP_URL } from '../config'
+import { BRIDGE_HTTP_URL, SPEECH_LANG } from '../config'
 import { getMic } from './audio'
 import { speakingNow, speakingSince } from './tts'
 import { startVad, type Vad } from './vad'
@@ -9,7 +9,7 @@ import { caps } from './capabilities'
  *
  * One recogniser, running for the life of the page. It is never torn down for
  * a turn, and that single fact is most of what separates this from a kiosk:
- * the microphone is still open while JARVIS is talking, so you can cut him off
+ * the microphone is still open while FRIDAY is talking, so you can cut him off
  * the way you would cut off a person.
  *
  * The obvious design — one recogniser hunting for the wake word, a second one
@@ -18,7 +18,7 @@ import { caps } from './capabilities'
  * nothing is listening during an answer, so barge-in is impossible, and every
  * restart leaves a quarter-second of deafness that eats whole wake words.
  *
- * Keeping the mic open costs one thing: JARVIS hears himself through the
+ * Keeping the mic open costs one thing: FRIDAY hears himself through the
  * speakers. That is handled here in text rather than in acoustics — see
  * `isEcho` — because the browser gives SpeechRecognition its own capture and
  * won't let us put a canceller in front of it.
@@ -38,7 +38,7 @@ export type VoiceHandlers = {
   /** Read fresh on every result, so the app never has to re-subscribe. */
   mode: () => VoiceMode
   /** Fired on his name, from a partial — waiting for endpointing feels slow.
-   *  `trailing` is whatever followed it, so "Jarvis, what's the weather" is
+   *  `trailing` is whatever followed it, so "Friday, what's the weather" is
    *  one breath rather than two turns. */
   onWake: (trailing: string) => void
   /** The user has genuinely started talking. This is the barge-in trigger. */
@@ -65,22 +65,23 @@ export type Voice = {
 const WAKE_DEBOUNCE = 1500
 
 /**
- * Her name, and the wake phrase. "Friday" needs the greeting in front of it —
- * it is a weekday first, and "file it by Friday" must not wake her. "Jarvis"
- * is kept as an alias and needs no greeting, as before.
+ * Her name, and the wake phrase.
  *
- * The optional prefix is genuinely optional: addressing him by name alone is
- * correct, and during an answer "Jarvis" on its own is the natural way to cut
- * in. The negative lookahead keeps possessives ("Jarvis's job") from waking him.
+ * "Friday" is a weekday first, so the greeting is what makes it a name: "file
+ * it by Friday" must not wake her. On its own it counts only as a whole
+ * utterance or set off by punctuation at the start of one ("Friday, open
+ * Excel"), which the transcriber writes and "Friday is the due date" lacks.
  *
- * The alternates are not padding. "Jarvis" is not in a general dictation
- * model's high-frequency vocabulary, and Chrome routinely returns Travis,
- * Jervis, Jarvys or Java's for a perfectly clear utterance — every one of which
- * used to be silently discarded, so the wake word "just didn't work" with no
- * indication why. Better a rare false wake than a name that does not answer.
+ * The separators matter. Whisper punctuates, so a clear "Hey Friday" arrives
+ * as "Hey, Friday." and a bare space between the words would never match it.
+ * The alternates are what recognisers really return for the name.
  */
-const WAKE =
-  /\b(?:(?:hey|hi|ok|okay|yo)\s*(?:friday|fryday|fri day)|(?:hey|hi|ok|okay|yo)?\s*(?:jarvis|jarvys|jervis|jarvis's|travis|jarviss|java's|jarv))\b(?!'s)/i
+const FRIDAY = '(?:friday|fryday|fri day|fry day|fridey|frida)'
+const GREETING = '(?:hey|hi|hello|ok|okay|yo|hay|ay|eh)'
+export const NAME_PHRASE =
+  `(?:\\b${GREETING}[\\s,.!-]*${FRIDAY}\\b(?!'s)` +
+  `|^\\s*${FRIDAY}(?=\\s*[,.!?:]|\\s*$))`
+const WAKE = new RegExp(NAME_PHRASE, 'i')
 
 /** Everything after the wake phrase, which is usually the actual command. */
 function afterWake(text: string): string {
@@ -137,7 +138,7 @@ const TRAILS = /[,;:–—-]$/
  * reaching the detector, but the attack of the very first syllable is the
  * loudest, least-cancelled thing in the whole answer — it arrives before the
  * canceller has adapted to it. Without this, a long answer could interrupt
- * itself on its own first word, which reads as JARVIS refusing to speak.
+ * itself on its own first word, which reads as FRIDAY refusing to speak.
  *
  * Kept short deliberately. This is the one window where a genuine interruption
  * is also least likely: the user has not yet heard enough to want to stop him.
@@ -269,7 +270,7 @@ const norm = (s: string) =>
  * would be the single most infuriating failure this file could have.
  */
 const OVERRIDE =
-  /\b(stop|wait|jarvis|cancel|enough|quiet|hold on|shut up|never ?mind|forget it|no)\b/i
+  /\b(stop|wait|friday|cancel|enough|quiet|hold on|shut up|never ?mind|forget it|no)\b/i
 
 /**
  * Words too common to be evidence of anything.
@@ -334,7 +335,8 @@ function isEcho(heard: string, spoken: string): boolean {
  * apart in one glance.
  */
 export const diag = {
-  /** Which input engine is running: 'elevenlabs' (VAD+Scribe) or 'browser'. */
+  /** Which input engine is running: 'transcriber' (VAD, then Whisper or
+   *  Scribe on the bridge) or 'browser'. */
   engine: 'browser',
   /** Whether the microphone pipeline is live. */
   running: false,
@@ -363,6 +365,9 @@ export const diag = {
   restarts: 0,
   /** Milliseconds the last transcription round-trip took. */
   idleMs: 0,
+  /** Live microphone level after the boost, and the bar speech must clear. */
+  energy: 0,
+  threshold: 0,
 }
 
 /** Record why a transcript went nowhere. Silence always has a reason; this is
@@ -400,7 +405,7 @@ export async function startVoice(h: VoiceHandlers): Promise<Voice> {
     )
     return { stop: () => {}, live: () => false }
   }
-  diag.engine = caps().stt ? 'elevenlabs' : 'browser'
+  diag.engine = caps().stt ? 'transcriber' : 'browser'
   return caps().stt ? startElevenVoice(h) : startBrowserVoice(h)
 }
 
@@ -491,7 +496,7 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
           diag.accepted++
           h.onWake(afterWake(said))
         } else {
-          drop(`heard "${said.slice(-40)}" — not his name`)
+          drop(`heard "${said.slice(-40)}" — not her name`)
         }
         return
       }
@@ -568,7 +573,12 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
   // 200ms lag on the echo gate is imperceptible.
   const guardPoll = setInterval(() => {
     const mode = h.mode()
-    vad?.setGuard(mode === 'guard')
+    vad?.setGuard(mode === 'guard' || Boolean(speakingNow()))
+    const meter = vad?.meter()
+    if (meter) {
+      diag.energy = meter.energy
+      diag.threshold = meter.threshold
+    }
     // He has stood down — by Escape, by the idle timeout, or by dropping back
     // to the wake word. Anything half-said belonged to a conversation that is
     // over, and letting the hold expire later would open the next one with a
@@ -668,7 +678,7 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
         diag.accepted++
         h.onWake(afterWake(text))
       } else {
-        drop(`heard "${text.slice(-40)}" — not his name`)
+        drop(`heard "${text.slice(-40)}" — not her name`)
       }
       return
     }
@@ -762,7 +772,7 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
     rec = new Ctor()
     rec.continuous = true
     rec.interimResults = true
-    rec.lang = 'en-GB'
+    rec.lang = SPEECH_LANG
     rec.onstart = () => {
       running = true
       diag.running = true

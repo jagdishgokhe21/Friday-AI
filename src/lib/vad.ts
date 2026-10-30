@@ -19,7 +19,7 @@ import { getMic } from './audio'
  * later from a real transcriber that cannot silently fail the way the browser
  * one did.
  *
- * Hearing himself is the one hard part. The microphone picks up JARVIS's own
+ * Hearing himself is the one hard part. The microphone picks up FRIDAY's own
  * voice through the speakers, and raw energy cannot tell that from the user.
  * Two things handle it: getUserMedia is asked for echo cancellation, which
  * removes most of the playback, and while he is speaking the trigger threshold
@@ -40,7 +40,7 @@ export type VadHandlers = {
 
 export type Vad = {
   stop: () => void
-  /** Raise the trigger bar while JARVIS speaks, so his own playback leaking
+  /** Raise the trigger bar while FRIDAY speaks, so his own playback leaking
    *  past echo cancellation does not register as the user talking. */
   setGuard: (on: boolean) => void
   live: () => boolean
@@ -54,12 +54,16 @@ export type Vad = {
 
 /** How far above the noise floor the signal must rise to count as speech.
  *  The floor tracks the room, so this is a ratio, not an absolute level. */
-const TRIGGER_OVER_FLOOR = 2.6
-/** While he is speaking, demand this much more, so residual echo is ignored. */
-const GUARD_BOOST = 2.4
+const TRIGGER_OVER_FLOOR = 2
+/** While she is speaking, demand this much more, so residual echo is ignored.
+ *  Together with the line above this keeps the bar where it was for barge-in:
+ *  only the resting bar came down, so that a soft voice registers. */
+const GUARD_BOOST = 3.1
 /** Falling back below trigger×this ends the segment. Hysteresis stops a single
- *  dip mid-word from cutting a sentence in half. */
-const RELEASE_RATIO = 0.6
+ *  dip mid-word from cutting a sentence in half. The product with the trigger
+ *  has to stay well above 1: at about 1 the bar sits on the room's own noise,
+ *  the segment never ends, and she waits for silence that cannot arrive. */
+const RELEASE_RATIO = 0.78
 
 /** Sustained energy for this long confirms speech rather than a knock or click. */
 const START_MS = 110
@@ -75,7 +79,7 @@ const START_MS = 110
  * should always have been — a cheap "have they stopped making noise" — and the
  * shorter window gets the transcript moving sooner.
  */
-const SILENCE_MS = 650
+const SILENCE_MS = 800
 /** Nobody speaks one segment for this long; cut it and transcribe what we have. */
 const MAX_MS = 20000
 
@@ -83,6 +87,26 @@ const MAX_MS = 20000
  *  door closing), so it settles to genuine ambient noise without chasing speech. */
 const FLOOR_UP = 0.0008
 const FLOOR_DOWN = 0.02
+
+/**
+ * Software gain ahead of everything else, limited so a loud voice cannot clip.
+ * A laptop mic set low delivers speech too faint for the detector and for the
+ * transcriber alike. Noise rises with it, which is fine: the floor is relative.
+ */
+const MIC_GAIN = 4
+
+/**
+ * The recorder hears the signal this much later than the detector does.
+ *
+ * Speech only crosses the threshold partway into its first syllable, and the
+ * recorder can only start after that. Delaying what it records means the audio
+ * from just before the crossing is still on its way when it starts, so "Hey"
+ * survives, and with it the wake phrase. Must stay below SILENCE_MS.
+ */
+const PRE_ROLL_S = 0.35
+
+/** ≈21ms at 48kHz, about the rate the detector was tuned at. */
+const FRAME_SAMPLES = 1024
 
 function pickMime(): string {
   const candidates = [
@@ -123,11 +147,29 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
   // is a no-op when it is already running.
   void ctx.resume()
   const source = ctx.createMediaStreamSource(stream)
-  const analyser = ctx.createAnalyser()
-  analyser.fftSize = 1024
-  analyser.smoothingTimeConstant = 0.35
-  source.connect(analyser)
-  const buf = new Float32Array(analyser.fftSize)
+  const boost = ctx.createGain()
+  boost.gain.value = MIC_GAIN
+  const limiter = ctx.createDynamicsCompressor()
+  limiter.threshold.value = -6
+  limiter.ratio.value = 20
+  const preRoll = ctx.createDelay(1)
+  preRoll.delayTime.value = PRE_ROLL_S
+  const recorded = ctx.createMediaStreamDestination()
+  source.connect(boost)
+  boost.connect(limiter)
+  limiter.connect(preRoll)
+  preRoll.connect(recorded)
+
+  // The detector runs on the audio clock, not on requestAnimationFrame. Animation
+  // frames stop when the tab is behind another window, which would leave her
+  // deaf the moment she opened Excel for you. The node has to reach the output
+  // to be driven at all, hence the silent gain after it.
+  const frames = ctx.createScriptProcessor(FRAME_SAMPLES, 1, 1)
+  const mute = ctx.createGain()
+  mute.gain.value = 0
+  limiter.connect(frames)
+  frames.connect(mute)
+  mute.connect(ctx.destination)
 
   let stopped = false
   let guard = false
@@ -142,10 +184,8 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
   let speaking = false
   let speechStartedAt = 0
   let lastLoud = 0
-  let raf = 0
 
-  const rms = (): number => {
-    analyser.getFloatTimeDomainData(buf)
+  const rms = (buf: Float32Array): number => {
     let sum = 0
     for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i]
     return Math.sqrt(sum / buf.length)
@@ -154,9 +194,11 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
   const startRecorder = () => {
     parts = []
     try {
-      recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+      recorder = mime
+        ? new MediaRecorder(recorded.stream, { mimeType: mime })
+        : new MediaRecorder(recorded.stream)
     } catch {
-      recorder = new MediaRecorder(stream)
+      recorder = new MediaRecorder(recorded.stream)
     }
     recorder.ondataavailable = (e) => {
       if (e.data && e.data.size) parts.push(e.data)
@@ -200,11 +242,10 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
     }
   }
 
-  const tick = () => {
+  frames.onaudioprocess = (e) => {
     if (stopped) return
-    raf = requestAnimationFrame(tick)
 
-    const energy = rms()
+    const energy = rms(e.inputBuffer.getChannelData(0))
     smoothEnergy += (energy - smoothEnergy) * 0.5
     h.onLevel(Math.min(1, smoothEnergy * 12))
 
@@ -250,12 +291,10 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
     }
   }
 
-  tick()
-
   return {
     stop: () => {
       stopped = true
-      cancelAnimationFrame(raf)
+      frames.onaudioprocess = null
       discardRecorder()
       try {
         source.disconnect()

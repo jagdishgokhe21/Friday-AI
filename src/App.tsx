@@ -5,7 +5,7 @@ import { Boot } from './ui/Boot'
 import { Ignition } from './ui/Ignition'
 import { Diagnostics } from './ui/Diagnostics'
 import { useStore } from './store'
-import { startVoice, type Voice, type VoiceMode } from './lib/voice'
+import { NAME_PHRASE, startVoice, type Voice, type VoiceMode } from './lib/voice'
 import { createSpeaker, cycleVoice, currentVoiceName } from './lib/tts'
 import * as sfx from './lib/sfx'
 import * as music from './lib/music'
@@ -48,12 +48,19 @@ import { env } from './config'
 
 /** How long to wait for someone to start speaking after he wakes. Generous:
  *  people say his name and *then* think about what they wanted. */
-const AWAIT_SPEECH_MS = 14000
+const AWAIT_SPEECH_MS = 60000
 
 /** After an answer, how long the mic stays open for a follow-up before he
  *  drops back to standby. Long enough that you don't have to say the name
  *  again to continue a thought. */
-const FOLLOW_UP_MS = 11000
+const FOLLOW_UP_MS = 120000
+
+/** What she says when she has finished coming up. */
+const INTRO = 'Hello boss. I am Friday, your personal assistant. All systems are fully operational.'
+
+/** Ending the conversation out loud, so she stops listening before the timeout. */
+const STAND_DOWN =
+  /^(?:(?:ok|okay|thanks|thank you)[\s,.!]*)*(?:that'?s all|that is all|go to sleep|stand down|goodbye|good bye|bye|stop listening)(?:[\s,.]*(?:friday|boss))?[\s.!]*$/i
 
 /** crypto.randomUUID needs a secure context, which a LAN address over plain
  *  http is not. Not worth failing a whole turn over an id. */
@@ -61,15 +68,10 @@ const newId = () =>
   globalThis.crypto?.randomUUID?.() ??
   `id${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
 
-/** The same mishearings voice.ts accepts for the wake word — otherwise a turn
- *  that woke him as "travis" gets that word sent on to the model as a question. */
-const NAME =
-  '(?:(?:hey|hi|ok|okay|yo)\\s*(?:friday|fryday|fri day)' +
-  '|(?:hey|hi|ok|okay|yo)?\\s*(?:jarvis|jarvys|jervis|travis|jarviss|java\'s|jarv))'
-/** A bare vocative — "hey friday", "Jarvis" — with nothing asked. */
-const BARE_NAME = new RegExp(`^${NAME}[\\s,.!?]*$`, 'i')
+/** A bare vocative — "Hey Friday" — with nothing asked. */
+const BARE_NAME = new RegExp(`^${NAME_PHRASE}[\\s,.!?]*$`, 'i')
 /** A leading vocative on a real command: "Hey Friday, what's the weather". */
-const LEADING_NAME = new RegExp(`^${NAME}\\b[\\s,.:!?-]*`, 'i')
+const LEADING_NAME = new RegExp(`^${NAME_PHRASE}[\\s,.:!?-]*`, 'i')
 
 export default function App() {
   const store = useStore
@@ -159,7 +161,7 @@ export default function App() {
             // clear the readout while a slow tool was still running.
             store.getState().setActiveTool(null)
             music.working(false)
-            store.getState().pushTurn({ id: turnId, role: 'jarvis', text: '' })
+            store.getState().pushTurn({ id: turnId, role: 'friday', text: '' })
           }
           store.getState().appendToLastTurn(delta)
           spk.push(delta)
@@ -245,7 +247,7 @@ export default function App() {
     store.getState().setError(null)
     sfx.play('wake')
 
-    // "Jarvis, what's happening in AI this week" in one breath. Waiting for a
+    // "Friday, what's happening in AI this week" in one breath. Waiting for a
     // greeting he didn't need is the most common way an assistant wastes time.
     if (trailing) {
       void respond(trailing)
@@ -289,6 +291,9 @@ export default function App() {
       music.duck(false)
     }
     store.getState().setPhase('listening')
+    // Not every noise becomes an utterance. Without this, a cough with nothing
+    // to transcribe would leave her listening for ever.
+    idleTimer.current = setTimeout(goDormant, FOLLOW_UP_MS)
   }
 
   const onUtterance = (text: string) => {
@@ -296,7 +301,7 @@ export default function App() {
     if (phase === 'offline' || phase === 'boot' || phase === 'dormant') return
 
     // People keep using his name as a vocative once they're already talking to
-    // him. Strip it rather than sending "jarvis" to the model as a question.
+    // him. Strip it rather than sending "friday" to the model as a question.
     if (BARE_NAME.test(text)) {
       listen(AWAIT_SPEECH_MS)
       return
@@ -304,6 +309,14 @@ export default function App() {
     const said = text.replace(LEADING_NAME, '').trim()
     if (!said) {
       listen(AWAIT_SPEECH_MS)
+      return
+    }
+    if (STAND_DOWN.test(said)) {
+      goDormant()
+      const farewell = createSpeaker()
+      speaker.current = farewell
+      farewell.say('Standing by, boss.')
+      void farewell.end()
       return
     }
 
@@ -336,7 +349,7 @@ export default function App() {
       // for the rest of the page, recoverable only by reloading. Reset it and
       // put the button back so the user can simply press it again.
       booting.current = false
-      console.error('[jarvis] power-up failed:', err)
+      console.error('[friday] power-up failed:', err)
       store.getState().setPhase('offline')
       store
         .getState()
@@ -368,7 +381,7 @@ export default function App() {
     watchBlades((blade) => store.getState().pushBlade(blade))
 
     /**
-     * JARVIS asking to see something.
+     * FRIDAY asking to see something.
      *
      * Announced on screen for as long as it takes, with whatever he said he was
      * looking for. The camera's own light is on too, but a hardware light that
@@ -423,7 +436,7 @@ export default function App() {
       }
     })
 
-    // The interface is JARVIS's to drive. These arrive out of band, pushed
+    // The interface is FRIDAY's to drive. These arrive out of band, pushed
     // mid-turn the way panels are, so a command can retint the reactor or put
     // something into orbit while he is still speaking the sentence about it.
     watchUi((op, args) => {
@@ -448,7 +461,7 @@ export default function App() {
           s.clearScreen(a.what ?? 'all')
           break
         default:
-          console.warn('[jarvis] unknown ui op:', op, args)
+          console.warn('[friday] unknown ui op:', op, args)
       }
     })
     // In bridge mode the conversation lives in the agent session, which is tied
@@ -472,8 +485,8 @@ export default function App() {
     }
 
     // Pull the neural voice down during the boot sequence so the first
-    // "Hey Jarvis" isn't waiting on an 86MB download. Deliberately not awaited
-    // — if it's slow, JARVIS comes up on the system voice and swaps over the
+    // "Hey Friday" isn't waiting on an 86MB download. Deliberately not awaited
+    // — if it's slow, FRIDAY comes up on the system voice and swaps over the
     // moment the model is ready.
     if (TTS_ENGINE === 'kokoro') {
       void kokoro.load()
@@ -506,7 +519,7 @@ export default function App() {
       await startAnalyser()
     } catch {
       console.warn(
-        '[jarvis] no microphone stream — the reactor will not pulse with your ' +
+        '[friday] no microphone stream — the reactor will not pulse with your ' +
           'voice. Speech recognition is unaffected.',
       )
     }
@@ -526,7 +539,21 @@ export default function App() {
       onError: onVoiceError,
     })
 
-    store.getState().setPhase('dormant')
+    // She introduces herself, then listens straight away with no wake word.
+    // 'speaking' puts the voice loop in guard mode for it, so the raised bar
+    // keeps her own voice from counting as somebody interrupting her.
+    const intro = createSpeaker()
+    speaker.current = intro
+    store.getState().pushTurn({ id: newId(), role: 'friday', text: INTRO })
+    store.getState().setPhase('speaking')
+    music.duck(true)
+    intro.say(INTRO)
+    void intro.end().then(() => {
+      music.duck(false)
+      if (speaker.current !== intro) return // interrupted; already listening
+      speaker.current = null
+      listen(AWAIT_SPEECH_MS)
+    })
   }
 
   // -- clap to start --------------------------------------------------------
@@ -567,7 +594,7 @@ export default function App() {
 
     const pump = () => {
       const st = store.getState()
-      // While speaking, follow JARVIS's own output rather than the mic, so the
+      // While speaking, follow FRIDAY's own output rather than the mic, so the
       // orb lip-syncs instead of reacting to room noise.
       const lvl =
         st.phase === 'speaking' && speaker.current
@@ -643,7 +670,7 @@ export default function App() {
         t.say('Audio test. If you can hear this, speech output is working, boss.')
         void t.end().then(() => {
           const d = (window as unknown as Record<string, Record<string, unknown>>).__tts
-          console.info('[jarvis] audio test →', d)
+          console.info('[friday] audio test →', d)
           if (d && d.started === 0 && d.rescued === 0) {
             store.getState().setError(
               `No sound produced. engine=${d.engine} voice=${d.voice} error=${d.lastError || 'none'}`,

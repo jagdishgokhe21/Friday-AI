@@ -20,7 +20,7 @@ WHAT IS DIFFERENT FROM MARK LVI
     * No confirmation screen. core/confirm.py refuses irreversible actions when
       nothing is bound to show the prompt, so shutdown, restart and the like
       decline rather than run unasked. The bridge's decideTool() is the other
-      gate: effectful tools here need JARVIS_ALLOW_WRITES=1.
+      gate: effectful tools here need FRIDAY_ALLOW_WRITES=1.
     * Gemini is optional. Actions that use it for a smart step (web grounding,
       transcript summaries, finding something on screen) work once a free key
       is in config/api_keys.json as {"gemini_api_key": "..."}, and say so

@@ -6,7 +6,7 @@ import { userInfo } from 'node:os'
 import { join } from 'node:path'
 
 /**
- * JARVIS's hands on your actual browser.
+ * FRIDAY's hands on your actual browser.
  *
  * Not Playwright. Playwright drives a fresh automation profile: no cookies, no
  * sessions, and a fingerprint that the sites worth visiting recognise on sight
@@ -43,7 +43,7 @@ import { join } from 'node:path'
  * that could break is therefore soft: the socket is re-discovered on every
  * reconnect rather than pinned, an unreachable extension is reported to the
  * model as a plain sentence instead of thrown, and no tool here is required for
- * the rest of JARVIS to work.
+ * the rest of FRIDAY to work.
  */
 
 /**
@@ -237,7 +237,7 @@ class ChromeLink {
    * Run one extension tool. Queued behind whatever is already running.
    *
    * A dropped connection is retried exactly once, because the overwhelmingly
-   * common cause is a socket that went stale while JARVIS was idle — Chrome was
+   * common cause is a socket that went stale while FRIDAY was idle — Chrome was
    * restarted between two questions — and re-dialling silently is much better
    * than telling the user their browser is unavailable when it is sitting right
    * there. A second failure is real and is reported.
@@ -353,7 +353,7 @@ function clean(content) {
 }
 
 /**
- * The tab JARVIS is working in.
+ * The tab FRIDAY is working in.
  *
  * Remembered here rather than threaded through the model, because making the
  * model carry it is both unreliable and pointless. Unreliable: it is a

@@ -62,10 +62,25 @@ FRIDAY picks it automatically.
 
 ## The wake word
 
-- **"Hey / Hi / OK Friday"** wakes her. "Friday" alone does not, so "file it by
-  Friday" in a meeting stays quiet.
-- **"Jarvis"** still works as an alias, with or without "hey".
+- She introduces herself at start-up and is **already listening**, no wake word.
+- She stays awake for **two minutes** after each answer, so a conversation needs
+  the name only once. Say **"that's all"**, **"go to sleep"** or **"bye"** to end it
+  sooner, or press **Escape**.
+- From standby, **"Hey / Hi / OK Friday"** wakes her. A sentence that merely
+  contains the word, like "file it by Friday", does not.
 - **Space** talks without the wake word; just speak to interrupt her.
+
+## Hearing
+
+Speech is transcribed on your Mac by **Whisper** (`hands/stt_worker.py`), with
+no key and nothing sent anywhere. The browser boosts the microphone 4× first
+(`src/lib/vad.ts`), and the model is primed for Indian English and accounting
+vocabulary. Detection runs on the audio clock, so she keeps hearing you while
+Chrome is behind another window. An ElevenLabs key switches this to Scribe; if
+neither is available she falls back to Chrome's recogniser (`VITE_SPEECH_LANG`,
+default `en-IN`).
+
+If she still struggles, raise **System Settings → Sound → Input → Input volume**.
 
 ## What the hands can do
 
@@ -119,12 +134,13 @@ at the next bridge start. Then add it to `HANDS_FREE` or `HANDS_READ` in
 
 | Variable | Default | Effect |
 |---|---|---|
-| `JARVIS_MODEL` | `claude-opus-5-5` | Model the brain runs |
-| `JARVIS_EFFORT` | `high` | Reasoning effort |
-| `JARVIS_ALLOW_WRITES` | off | `1` allows effectful tools |
-| `JARVIS_BRIDGE_PORT` | `8787` | Bridge port |
+| `FRIDAY_MODEL` | `claude-opus-5-5` | Model the brain runs |
+| `FRIDAY_EFFORT` | `high` | Reasoning effort |
+| `FRIDAY_ALLOW_WRITES` | off | `1` allows effectful tools |
+| `FRIDAY_BRIDGE_PORT` | `8787` | Bridge port |
+| `FRIDAY_WHISPER_MODEL` | `small.en` | Local speech model; `base.en` is faster, `medium.en` more accurate |
 | `ELEVENLABS_API_KEY` | — | Better voice + transcription |
-| `JARVIS_VOICE_ID` | Alice | ElevenLabs voice |
+| `FRIDAY_VOICE_ID` | Alice | ElevenLabs voice |
 
 Frontend options live in `.env.local` — see `.env.example`.
 

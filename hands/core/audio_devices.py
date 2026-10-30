@@ -1,5 +1,5 @@
 """
-core/audio_devices.py — pick which microphone and which speakers JARVIS uses.
+core/audio_devices.py — pick which microphone and which speakers FRIDAY uses.
 
 WHY
     Both audio streams in main.py were opened without a `device=` argument, so
@@ -439,7 +439,7 @@ def resolve(name: str, kind: str):
 #
 # This began life as `ses_testi.py`, a loose script in the project root that
 # nobody would ever find. It is here because the moment somebody needs it is
-# the moment they have opened AUDIO DEVICES wondering why JARVIS cannot hear
+# the moment they have opened AUDIO DEVICES wondering why FRIDAY cannot hear
 # them.
 
 # Below this peak, nothing usable arrived; below the second, speech is present
