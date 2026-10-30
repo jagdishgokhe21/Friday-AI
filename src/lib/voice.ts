@@ -1,6 +1,6 @@
 import { BRIDGE_HTTP_URL, SPEECH_LANG } from '../config'
 import { getMic } from './audio'
-import { speakingNow, speakingSince } from './tts'
+import { selfAudible, speakingSince, spokenRecently } from './tts'
 import { startVad, type Vad } from './vad'
 import { caps } from './capabilities'
 
@@ -478,10 +478,11 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
         return
       }
 
-      // His own voice, come back through the microphone. The raised guard
-      // threshold stops most of it at the door; this catches the rest.
-      if (isEcho(said, speakingNow())) {
-        drop('echo of his own voice')
+      // The microphone is shut while she talks, so this is a backstop. The
+      // transcript took seconds to come back, so it is compared with all she
+      // said recently rather than with this moment.
+      if (isEcho(said, spokenRecently())) {
+        drop('echo of her own voice')
         return
       }
 
@@ -500,6 +501,10 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
         }
         return
       }
+
+      // Words from someone while she was working: this, not the noise that
+      // preceded them, is what interrupts her. A cough must not cancel a task.
+      if (h.mode() === 'guard') h.onSpeechStart()
 
       // Not a turn yet — a piece of one. The assembler decides when the thought
       // is finished, reading the words and whether the room is still noisy.
@@ -533,27 +538,17 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
       // Standing down mid-thought throws the thought away with it. Otherwise
       // held text would surface as the opening of the *next* conversation.
       if (mode === 'wake') assemble.cancel()
-      // The barge-in. In guard mode the user has started talking over him, and
-      // because the guard threshold is high this is a real interruption rather
-      // than leaked playback — so cut him off now, do not wait for the words.
-      if (mode === 'guard') {
-        const since = speakingSince()
-        if (since && Date.now() - since < SELF_GUARD_MS) {
-          diag.selfGuarded++
-          return
-        }
-        h.onSpeechStart()
-      }
     },
     onEnd: (blob) => {
       pendingAudio.push(blob)
       void drain()
     },
+    selfAudible,
     onLevel: (v) => {
       // Only paint the live level while actually listening for a command, so a
       // dormant reactor stays calm and does not twitch at every room noise.
       const mode = h.mode()
-      if (mode !== 'command') return
+      if (mode !== 'command' || selfAudible()) return
       // Never over the assembled text. This used to run unconditionally and
       // overwrote a half-built sentence with an ellipsis sixty times a second,
       // so a pause looked like the interface had forgotten what you just said.
@@ -573,7 +568,7 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
   // 200ms lag on the echo gate is imperceptible.
   const guardPoll = setInterval(() => {
     const mode = h.mode()
-    vad?.setGuard(mode === 'guard' || Boolean(speakingNow()))
+    vad?.setGuard(mode === 'guard' || selfAudible())
     const meter = vad?.meter()
     if (meter) {
       diag.energy = meter.energy
@@ -663,8 +658,8 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
     const mode = h.mode()
     reset()
     if (!text || mode === 'deaf') return
-    if (isEcho(text, speakingNow())) {
-      drop('echo of his own voice')
+    if (isEcho(text, spokenRecently())) {
+      drop('echo of her own voice')
       return
     }
     diag.heard = text
@@ -712,7 +707,7 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
     }
     const heard = `${settled}${fresh} ${interim}`.replace(/\s+/g, ' ').trim()
     if (!heard) return
-    if (isEcho(`${fresh} ${interim}`, speakingNow())) {
+    if (isEcho(`${fresh} ${interim}`, spokenRecently())) {
       interim = ''
       return
     }

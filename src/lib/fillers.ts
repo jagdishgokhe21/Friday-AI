@@ -39,15 +39,6 @@ const ACKNOWLEDGE = [
   'Directly, boss.',
 ]
 
-/** Answering to his name, before the user has said what they want. */
-const ATTENTION = [
-  'Yes, boss?',
-  'Boss?',
-  'At your service, boss.',
-  'Standing by.',
-  'Awake, boss.',
-]
-
 /**
  * Avoids repeating the same phrase twice running, which is what makes canned
  * lines sound canned. Keeps one slot of history per pool.
@@ -65,7 +56,6 @@ function makePicker(pool: string[]) {
 
 export const working = makePicker(WORKING)
 export const acknowledge = makePicker(ACKNOWLEDGE)
-export const attention = makePicker(ATTENTION)
 
 /**
  * Naming the task is warmer than a generic acknowledgement and shows the

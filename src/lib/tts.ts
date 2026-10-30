@@ -111,17 +111,55 @@ export function speakingSince(): number {
   return speaking ? speakingAt : 0
 }
 
+/**
+ * How long after a sentence her voice can still be in the microphone: the room,
+ * plus the pre-roll that delays what the recorder hears. Sentences of one answer
+ * fall inside this, so a whole answer reads as one unbroken stretch of her.
+ */
+const SELF_TAIL_MS = 700
+/** The same after being cut off, when the speaker stops dead and the user is
+ *  about to talk. */
+const SELF_TAIL_CUT_MS = 450
+
+/** How far back a finished transcript is compared with what she said. It has to
+ *  outlast the transcriber: by the time words come back she has moved on. */
+const SPOKEN_MEMORY_MS = 8000
+
+let selfUntil = 0
+let spokenLog: Array<{ text: string; at: number }> = []
+
 function setSpeaking(text: string) {
   if (text) {
     speaking = text
     speakingAt = Date.now()
+    spokenLog = spokenLog.filter((s) => Date.now() - s.at < SPOKEN_MEMORY_MS)
     return
   }
   if (speaking) {
     recent = speaking
     recentUntil = Date.now() + ECHO_TAIL_MS
+    spokenLog.push({ text: speaking, at: Date.now() })
+    selfUntil = Date.now() + SELF_TAIL_MS
   }
   speaking = ''
+}
+
+/** Is her own voice in the room right now? Nothing else can answer this: her
+ *  system voice is played by the OS, so Chrome's echo canceller never sees it. */
+export function selfAudible(): boolean {
+  return Boolean(speaking) || Date.now() < selfUntil
+}
+
+/** Shorten the tail, because she was interrupted rather than finished. */
+export function selfCut(): void {
+  selfUntil = Math.min(selfUntil, Date.now() + SELF_TAIL_CUT_MS)
+}
+
+/** Everything she said recently, for recognising a transcript as her own. */
+export function spokenRecently(): string {
+  const now = Date.now()
+  const past = spokenLog.filter((s) => now - s.at < SPOKEN_MEMORY_MS).map((s) => s.text)
+  return [...past, speaking].join(' ').trim()
 }
 
 /**
@@ -714,6 +752,7 @@ export function createSpeaker(): Speaker {
       // Keep the echo tail: the words already in the air still have to be
       // recognised and discarded, even though he has stopped adding to them.
       setSpeaking('')
+      selfCut()
 
       // Only reach for the global cancel if this speaker actually has a native
       // utterance out — speechSynthesis.cancel() is document-wide and would

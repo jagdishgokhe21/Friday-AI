@@ -41,7 +41,9 @@ folder instead.
   keeps hearing you while Chrome is behind other windows.
 - Nearby conversation can count as a request while she is awake, so send her
   to standby if people are talking around you.
-- **Interrupt** by simply talking over her.
+- **Interrupt** her with the **Space bar**. Her ears are shut while she talks,
+  so speaking over her does nothing; wait for her to finish, or press Space and
+  talk. Speaking does interrupt her while she is thinking or working.
 - **Space bar** = talk without the wake word.
 - She calls you **boss** and keeps answers short. Ask "explain in detail" when
   you want more — the detail goes on a panel on screen.

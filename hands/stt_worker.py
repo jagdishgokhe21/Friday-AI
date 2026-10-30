@@ -12,16 +12,18 @@ WHY THIS AND NOT CHROME'S RECOGNISER
     be told what words to expect. Here the browser boosts the signal first and
     the model is told the vocabulary below.
 
-THE PROMPT IS DESCRIPTIVE ON PURPOSE
+THE PROMPT IS ONLY A LIST OF TERMS
     Whisper is biased towards words it has just been shown, which is how "GSTR"
-    survives an Indian accent. But on near-silence it can recite its prompt
-    back, so the prompt never contains the wake phrase itself: a hiss must not
-    be able to wake her.
+    survives an Indian accent. But on a faint or clipped sound it recites the
+    prompt back as if it had been said. A sentence came back as a sentence and
+    went to the brain as a question, so the prompt is bare terms, never holds
+    the wake phrase, and anything that is mostly the prompt is thrown away.
 """
 from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 
 # stdout is the protocol. Anything a library prints goes to stderr instead.
@@ -34,13 +36,24 @@ from faster_whisper import WhisperModel  # noqa: E402
 MODEL = os.environ.get("FRIDAY_WHISPER_MODEL", "small.en")
 
 _PROMPT = (
-    "A chartered accountant in India speaking to an assistant named Friday. "
     "GST, GSTR-1, GSTR-3B, GSTIN, TDS, ITR, CBDT, PAN, Aadhaar, Tally, Excel, "
     "audit, balance sheet, rupees, lakh, crore."
 )
+_PROMPT_WORDS = set(re.findall(r"[a-z0-9-]+", _PROMPT.lower()))
 
-# Below this the model itself is saying it heard no speech.
+# Above this the model itself is saying it heard no speech.
 _NO_SPEECH = 0.6
+
+# Below this the model is guessing, which is what recitation looks like.
+_MIN_LOGPROB = -1.0
+
+
+def _is_recitation(text: str) -> bool:
+    """Three or more words, and most of them are from the prompt."""
+    words = re.findall(r"[a-z0-9-]+", text.lower())
+    if len(words) < 3:
+        return False
+    return sum(w in _PROMPT_WORDS for w in words) / len(words) >= 0.6
 
 
 def _send(payload: dict) -> None:
@@ -61,7 +74,12 @@ def _transcribe(model: WhisperModel, path: str) -> str:
         vad_filter=True,
         vad_parameters={"threshold": 0.25, "min_silence_duration_ms": 600},
     )
-    return " ".join(s.text.strip() for s in segments if s.no_speech_prob < _NO_SPEECH).strip()
+    text = " ".join(
+        s.text.strip()
+        for s in segments
+        if s.no_speech_prob < _NO_SPEECH and s.avg_logprob > _MIN_LOGPROB
+    ).strip()
+    return "" if _is_recitation(text) else text
 
 
 def main() -> None:

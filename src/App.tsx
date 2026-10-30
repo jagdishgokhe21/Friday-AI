@@ -14,7 +14,7 @@ import { listenForClap } from './lib/clap'
 import * as camera from './lib/camera'
 import * as kokoro from './lib/kokoro'
 import { TTS_ENGINE } from './config'
-import { forTool, attention } from './lib/fillers'
+import { forTool } from './lib/fillers'
 import {
   ask,
   warm,
@@ -256,14 +256,8 @@ export default function App() {
 
     store.getState().setPhase('waking')
 
-    // Answer to his name. Deliberately NOT awaited any more: the microphone is
-    // already open and the echo filter knows his voice, so the user can talk
-    // straight over the greeting instead of waiting it out.
-    const greeting = createSpeaker()
-    speaker.current = greeting
-    greeting.say(attention())
-    void greeting.end()
-
+    // The chime above is the whole reply. The microphone shuts while she talks,
+    // so a spoken "Yes, boss?" would swallow what people say next.
     listen(AWAIT_SPEECH_MS)
   }
 

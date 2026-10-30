@@ -68,7 +68,10 @@ FRIDAY picks it automatically.
   sooner, or press **Escape**.
 - From standby, **"Hey / Hi / OK Friday"** wakes her. A sentence that merely
   contains the word, like "file it by Friday", does not.
-- **Space** talks without the wake word; just speak to interrupt her.
+- **Space** cuts her off while she is talking, and talks without the wake word.
+  The microphone is shut while she speaks, because her voice would otherwise
+  reach it and she would answer herself. Speech does interrupt her while she is
+  thinking or working.
 
 ## Hearing
 

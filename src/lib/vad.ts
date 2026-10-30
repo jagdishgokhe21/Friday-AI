@@ -32,6 +32,8 @@ export type VadHandlers = {
   onStart: () => void
   /** Speech ended. The blob is one complete, decodable audio file. */
   onEnd: (audio: Blob, ms: number) => void
+  /** Read on every frame: is her own voice in the room right now? */
+  selfAudible: () => boolean
   /** 0..1 smoothed input level, for the caption/orb while capturing. */
   onLevel: (v: number) => void
   /** Capture is impossible — no microphone, or no MediaRecorder support. */
@@ -248,6 +250,19 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
     const energy = rms(e.inputBuffer.getChannelData(0))
     smoothEnergy += (energy - smoothEnergy) * 0.5
     h.onLevel(Math.min(1, smoothEnergy * 12))
+
+    // Half duplex. Her system voice is played by the OS, so Chrome's echo
+    // canceller has nothing to subtract and it reaches the mic untouched; while
+    // it is in the room, nothing here can be trusted to be the user. Whisper
+    // cannot pick a word out from under it either, as tested with "stop" louder
+    // than her voice. So the ears close, and Space is how you cut her off.
+    if (h.selfAudible()) {
+      if (recorder) discardRecorder()
+      armedAt = 0
+      speaking = false
+      speechStartedAt = 0
+      return
+    }
 
     // Adapt the floor only when we are confident this is not speech.
     if (!speaking && armedAt === 0) {
