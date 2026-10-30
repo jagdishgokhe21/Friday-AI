@@ -102,26 +102,19 @@ const ALLOW_WRITES = process.env.FRIDAY_ALLOW_WRITES === '1'
 
 /**
  * The orchestrator model. Override with FRIDAY_MODEL to trade quality for pace
- * — claude-sonnet-5 is noticeably snappier on camera if Opus feels slow.
+ * — Sonnet keeps her quick in conversation; Opus is for work that needs more thought.
  */
-const MODEL = process.env.FRIDAY_MODEL ?? 'claude-opus-5-5'
+const MODEL = process.env.FRIDAY_MODEL ?? 'claude-sonnet-5-5'
 
 /**
  * How hard the model thinks before answering.
  *
- * This was 'low', on the reasoning that a voice assistant is judged on latency
- * — and that is true right up until the answer is thin. Low effort scopes the
- * work tightly to what was literally asked: fewer tool calls, less
- * cross-referencing, no second look. On a model of this tier that is leaving
- * most of it on the table.
- *
- * 'medium' is the compromise worth having here. It reasons and reaches for
- * tools noticeably more than 'low' while still answering inside the window a
- * spoken conversation tolerates. Raise it to 'high' or 'xhigh' when quality
- * matters more than pace; drop back to 'low' when filming and every second of
- * dead air shows.
+ * Low, because she is judged in spoken seconds. Measured on the same question:
+ * Opus at 'high' took 12.5s to its first word and $0.44, Sonnet at 'low' 5s and
+ * $0.03, with no worse an answer to a plain question. For work that deserves
+ * more thought, set FRIDAY_MODEL=claude-opus-5-5 and FRIDAY_EFFORT=high.
  */
-const EFFORT = process.env.FRIDAY_EFFORT ?? 'high'
+const EFFORT = process.env.FRIDAY_EFFORT ?? 'low'
 
 /**
  * Both spellings of every renamed built-in are listed on purpose. The SDK
@@ -268,6 +261,9 @@ const HANDS_SERVER = existsSync(HANDS_PYTHON)
       type: 'stdio',
       command: HANDS_PYTHON,
       args: [join(HANDS_DIR, 'mcp_server.py')],
+      // Otherwise the tools are hidden behind a search, and every first use
+      // costs her a whole extra model turn just to find them.
+      alwaysLoad: true,
     }
   : null
 

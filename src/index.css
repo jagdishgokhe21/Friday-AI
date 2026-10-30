@@ -319,6 +319,14 @@ body::after {
   text-align: center;
 }
 
+.mic-toggle {
+  all: unset;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.mic-toggle[aria-pressed='true'] {
+  color: #ff5a3c;
+}
 .hud-bottom {
   position: absolute;
   bottom: 44px;

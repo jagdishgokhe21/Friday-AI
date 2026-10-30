@@ -58,6 +58,11 @@ const FOLLOW_UP_MS = 120000
 /** What she says when she has finished coming up. */
 const INTRO = 'Hello boss. I am Friday, your personal assistant. All systems are fully operational.'
 
+/** Pausing the microphone out loud. Resuming takes M or the button: once it is
+ *  paused she cannot hear anything, including being asked to resume. */
+const PAUSE_MIC =
+  /^(?:please\s+)?(?:pause|mute|turn off|switch off)\s+(?:the\s+|your\s+|my\s+)?(?:mic|microphone)[\s.!]*$/i
+
 /** Ending the conversation out loud, so she stops listening before the timeout. */
 const STAND_DOWN =
   /^(?:(?:ok|okay|thanks|thank you)[\s,.!]*)*(?:that'?s all|that is all|go to sleep|stand down|goodbye|good bye|bye|stop listening)(?:[\s,.]*(?:friday|boss))?[\s.!]*$/i
@@ -305,6 +310,11 @@ export default function App() {
       listen(AWAIT_SPEECH_MS)
       return
     }
+    if (PAUSE_MIC.test(said)) {
+      setMicPaused(true)
+      listen(FOLLOW_UP_MS)
+      return
+    }
     if (STAND_DOWN.test(said)) {
       goDormant()
       const farewell = createSpeaker()
@@ -315,6 +325,13 @@ export default function App() {
     }
 
     void respond(said)
+  }
+
+  /** Also how to say "that's everything": what was heard goes to her at once. */
+  const setMicPaused = (on: boolean) => {
+    store.getState().setMicPaused(on)
+    voice.current?.setPaused(on)
+    sfx.play(on ? 'listen' : 'wake')
   }
 
   const onPartial = (text: string) => {
@@ -624,6 +641,13 @@ export default function App() {
         return
       }
 
+      // M pauses the microphone, and resumes it.
+      if (e.key === 'm' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault()
+        if (voice.current) setMicPaused(!store.getState().micPaused)
+        return
+      }
+
       // G puts the camera on and starts tracking hands. Off by default and
       // never implicit: a webcam that turns itself on because an interface
       // thought it might be useful is not a trade anyone agreed to.
@@ -721,7 +745,7 @@ export default function App() {
   return (
     <>
       <Scene />
-      <Hud />
+      <Hud onToggleMic={() => voice.current && setMicPaused(!store.getState().micPaused)} />
       <Boot />
       <Diagnostics />
       <Ignition onStart={() => void powerOn()} />

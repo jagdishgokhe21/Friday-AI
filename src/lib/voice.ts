@@ -53,6 +53,8 @@ export type VoiceHandlers = {
 
 export type Voice = {
   stop: () => void
+  /** Pause the microphone. Whatever has been said so far goes to her at once. */
+  setPaused: (on: boolean) => void
   /** True while a recogniser is actually running. */
   live: () => boolean
 }
@@ -164,6 +166,15 @@ const CONTINUE_MS = 1600
  * for ever, and the assistant would look like it had stopped listening.
  */
 const MAX_HOLD_MS = 6000
+/**
+ * How long a transcript waits when the room is still making noise. A real
+ * continuation arrives as the next transcript and resets this; a noise that
+ * transcribes to nothing releases it early, through `settle`. Long enough for
+ * the transcriber to answer, because that is what is being waited for.
+ */
+const ACTIVE_HOLD_MS = 2500
+/** The same, when the words already read as a finished sentence. */
+const ACTIVE_HOLD_DONE_MS = 1000
 
 /**
  * How long to keep waiting, given what has been said so far.
@@ -185,6 +196,8 @@ function holdFor(text: string): number {
 type Assembler = {
   /** Add a transcript. `active` is true if the user is audibly still going. */
   feed: (text: string, active: boolean) => void
+  /** Nobody is talking after all: decide about what is held, from the words. */
+  settle: () => void
   /** Send whatever is held right now, if anything. */
   flush: () => void
   /** Throw away whatever is held — used when he stands down. */
@@ -227,7 +240,7 @@ function makeAssembler(h: {
       // Already talking again. Decide nothing now — the next transcript is
       // part of this same sentence and will bring more of it.
       if (active) {
-        timer = setTimeout(fire, MAX_HOLD_MS)
+        timer = setTimeout(fire, holdFor(held) === 0 ? ACTIVE_HOLD_DONE_MS : ACTIVE_HOLD_MS)
         return
       }
 
@@ -241,6 +254,14 @@ function makeAssembler(h: {
         return
       }
       timer = setTimeout(fire, wait)
+    },
+    settle() {
+      if (!held) return
+      clear()
+      timer = setTimeout(
+        fire,
+        Math.min(holdFor(held), Math.max(0, MAX_HOLD_MS - (Date.now() - firstAt))),
+      )
     },
     flush: fire,
     cancel() {
@@ -403,7 +424,7 @@ export async function startVoice(h: VoiceHandlers): Promise<Voice> {
         ? 'Microphone access denied — voice input is unavailable.'
         : 'No microphone available.',
     )
-    return { stop: () => {}, live: () => false }
+    return { stop: () => {}, setPaused: () => {}, live: () => false }
   }
   diag.engine = caps().stt ? 'transcriber' : 'browser'
   return caps().stt ? startElevenVoice(h) : startBrowserVoice(h)
@@ -413,6 +434,7 @@ export async function startVoice(h: VoiceHandlers): Promise<Voice> {
 async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
   let lastWake = 0
   let vad: Vad | null = null
+  let paused = false
 
   /**
    * Segments waiting for the transcriber, oldest first.
@@ -475,6 +497,9 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
 
       if (!said) {
         drop('nothing intelligible in the segment')
+        // It was only noise, so whatever is held need not wait for "the rest".
+        if (paused) assemble.flush()
+        else assemble.settle()
         return
       }
 
@@ -509,6 +534,7 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
       // Not a turn yet — a piece of one. The assembler decides when the thought
       // is finished, reading the words and whether the room is still noisy.
       assemble.feed(said, vad?.meter().speaking ?? false)
+      if (paused) assemble.flush()
     } catch (err) {
       diag.restarts++
       diag.lastError = String(err)
@@ -582,6 +608,13 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
   }, 200)
 
   return {
+    setPaused: (on) => {
+      paused = on
+      const recording = vad?.setPaused(on) ?? false
+      // Pausing means "that's everything". Anything still on its way to the
+      // transcriber flushes itself when it lands.
+      if (on && !recording && !draining && !pendingAudio.length) assemble.flush()
+    },
     stop: () => {
       clearInterval(guardPoll)
       assemble.cancel()
@@ -607,11 +640,12 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
  * assistant that keeps listening.
  */
 function startBrowserVoice(h: VoiceHandlers): Voice {
+  let paused = false
   const Ctor =
     (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
   if (!Ctor) {
     h.onError('This browser has no speech recognition — use Chrome or Edge, or add an ElevenLabs key.')
-    return { stop: () => {}, live: () => false }
+    return { stop: () => {}, setPaused: () => {}, live: () => false }
   }
 
   let stopped = false
@@ -694,7 +728,7 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
     touch()
     const mode = h.mode()
     diag.mode = mode
-    if (mode === 'deaf') {
+    if (mode === 'deaf' || paused) {
       interim = ''
       return
     }
@@ -821,6 +855,10 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
   }, 5000)
 
   return {
+    setPaused: (on) => {
+      paused = on
+      if (on) emit()
+    },
     stop: () => {
       stopped = true
       clearInterval(health)

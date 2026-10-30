@@ -12,6 +12,16 @@ anyio>=4,<5
 faster-whisper>=1.2,<2
 av>=15,<16
 
+# The same model on the Apple GPU, several times faster. mlx-whisper itself is
+# installed by scripts/hands-setup.mjs with --no-deps: it declares PyTorch, which
+# is a very large download that transcription never imports. These are what it
+# does need.
+mlx>=0.32,<1;     sys_platform == "darwin" and platform_machine == "arm64"
+tiktoken;         sys_platform == "darwin" and platform_machine == "arm64"
+more-itertools;   sys_platform == "darwin" and platform_machine == "arm64"
+scipy;            sys_platform == "darwin" and platform_machine == "arm64"
+numba;            sys_platform == "darwin" and platform_machine == "arm64"
+
 # Optional Gemini step in some actions (free key in config/api_keys.json).
 google-genai>=2.8.0,<3
 httpx>=0.27,<1

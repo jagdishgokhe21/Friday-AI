@@ -29,8 +29,16 @@ if (!existsSync(python)) {
 run(python, ['-m', 'pip', 'install', '--upgrade', 'pip']);
 run(python, ['-m', 'pip', 'install', '-r', 'requirements.txt']);
 
+if (process.platform === 'darwin' && process.arch === 'arm64') {
+  run(python, ['-m', 'pip', 'install', '--no-deps', 'mlx-whisper']);
+}
+
 // Fetch the speech model now, so the first thing she hears does not wait on it.
-run(python, ['-c', "from faster_whisper import WhisperModel; WhisperModel('small.en', device='cpu', compute_type='int8')"]);
+run(python, ['-c', `
+import numpy as np, stt_worker
+engine = stt_worker._gpu_engine() or stt_worker._cpu_engine()
+engine(np.zeros(16000, dtype=np.float32))
+`]);
 
 console.log('\nHands and hearing ready. Restart the bridge and FRIDAY can reach the desktop.');
 console.log('macOS: allow your terminal under System Settings → Privacy & Security →');

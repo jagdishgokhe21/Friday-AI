@@ -79,6 +79,7 @@ export function startWhisper(python, script) {
       const ext = contentType.includes('ogg') ? 'ogg' : contentType.includes('mp4') ? 'mp4' : 'webm'
       const dir = await mkdtemp(join(tmpdir(), 'friday-stt-'))
       const path = join(dir, `speech.${ext}`)
+      const started = Date.now()
       try {
         await writeFile(path, audio)
         const id = nextId++
@@ -91,6 +92,7 @@ export function startWhisper(python, script) {
           worker.stdin.write(`${JSON.stringify({ id, path })}\n`)
         })
       } finally {
+        console.log(`[friday] heard in ${Date.now() - started}ms`)
         await rm(dir, { recursive: true, force: true })
       }
     },

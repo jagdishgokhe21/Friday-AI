@@ -42,6 +42,9 @@ export type VadHandlers = {
 
 export type Vad = {
   stop: () => void
+  /** Stop listening. Anything being recorded is finished, not thrown away, so
+   *  this doubles as "I'm done talking". True if a segment was in progress. */
+  setPaused: (on: boolean) => boolean
   /** Raise the trigger bar while FRIDAY speaks, so his own playback leaking
    *  past echo cancellation does not register as the user talking. */
   setGuard: (on: boolean) => void
@@ -81,9 +84,19 @@ const START_MS = 110
  * should always have been — a cheap "have they stopped making noise" — and the
  * shorter window gets the transcript moving sooner.
  */
-const SILENCE_MS = 800
+const SILENCE_MS = 600
 /** Nobody speaks one segment for this long; cut it and transcribe what we have. */
-const MAX_MS = 20000
+const MAX_MS = 12000
+
+/**
+ * Speech has also ended once it has fallen this far below its own peak.
+ *
+ * The floor is frozen during a segment, so a fan, a raised auto-gain or a room
+ * that was quieter a moment ago can sit above the fixed bar for the whole of
+ * MAX_MS: the speaker has finished, and she is still waiting for them to stop.
+ * Measured against the voice itself, the end of a sentence is obvious.
+ */
+const PEAK_RELEASE = 0.3
 
 /** The floor adapts slowly upward (a fan spinning up) and quickly downward (a
  *  door closing), so it settles to genuine ambient noise without chasing speech. */
@@ -135,12 +148,12 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
         ? 'Microphone access denied — voice input is unavailable.'
         : 'No microphone available.',
     )
-    return { stop: () => {}, setGuard: () => {}, live: () => false, meter: () => ({ energy: 0, floor: 0, threshold: 0, speaking: false }) }
+    return { stop: () => {}, setPaused: () => false, setGuard: () => {}, live: () => false, meter: () => ({ energy: 0, floor: 0, threshold: 0, speaking: false }) }
   }
 
   if (typeof MediaRecorder === 'undefined') {
     h.onError('This browser cannot record audio — voice input is unavailable.')
-    return { stop: () => {}, setGuard: () => {}, live: () => false, meter: () => ({ energy: 0, floor: 0, threshold: 0, speaking: false }) }
+    return { stop: () => {}, setPaused: () => false, setGuard: () => {}, live: () => false, meter: () => ({ energy: 0, floor: 0, threshold: 0, speaking: false }) }
   }
 
   const mime = pickMime()
@@ -175,6 +188,8 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
 
   let stopped = false
   let guard = false
+  let paused = false
+  let segmentPeak = 0
   let floor = 0.01
   let smoothEnergy = 0
   let threshold = 0
@@ -224,6 +239,7 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
     const rec = recorder
     const startedAt = speechStartedAt
     speaking = false
+    segmentPeak = 0
     speechStartedAt = 0
     if (!rec) return
     recorder = null
@@ -256,6 +272,7 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
     // it is in the room, nothing here can be trusted to be the user. Whisper
     // cannot pick a word out from under it either, as tested with "stop" louder
     // than her voice. So the ears close, and Space is how you cut her off.
+    if (paused) return
     if (h.selfAudible()) {
       if (recorder) discardRecorder()
       armedAt = 0
@@ -272,7 +289,8 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
     }
 
     threshold = floor * TRIGGER_OVER_FLOOR * (guard ? GUARD_BOOST : 1)
-    const release = threshold * RELEASE_RATIO
+    if (speaking) segmentPeak = Math.max(segmentPeak, smoothEnergy)
+    const release = Math.max(threshold * RELEASE_RATIO, segmentPeak * PEAK_RELEASE)
     const now = performance.now()
 
     if (!speaking) {
@@ -317,6 +335,17 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
       } catch {
         /* noop */
       }
+    },
+    setPaused: (on) => {
+      paused = on
+      if (!on) return false
+      armedAt = 0
+      if (speaking) {
+        endSegment()
+        return true
+      }
+      discardRecorder()
+      return false
     },
     setGuard: (on) => {
       guard = on

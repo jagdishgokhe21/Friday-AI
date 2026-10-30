@@ -48,6 +48,17 @@ folder instead.
 - She calls you **boss** and keeps answers short. Ask "explain in detail" when
   you want more — the detail goes on a panel on screen.
 
+## Pausing the microphone
+
+Press **M**, or click **pause mic** at the bottom of the screen. The top of the
+screen shows **MIC PAUSED** and she hears nothing until you press **M** again.
+
+- **If she looks stuck listening,** press **M**. She stops waiting and answers
+  what she has heard so far straight away.
+- You can also say *"pause the mic"*. Resuming takes **M** or the button,
+  because she cannot hear you while paused.
+- Use it when people are talking nearby, or on a phone call.
+
 ## Things to say
 
 **Apps and the computer**
@@ -100,7 +111,8 @@ folder instead.
 
 | Key | Does |
 |---|---|
-| Space | Talk without the wake word |
+| Space | Talk without the wake word, or cut her off |
+| M | Pause or resume the microphone |
 | Escape | Stand down |
 | V | Change browser voice |
 | D | Diagnostics (is she hearing me?) |
@@ -111,6 +123,7 @@ folder instead.
 | Problem | Fix |
 |---|---|
 | She says "Not logged in" | Run `claude` in Terminal and log in |
+| She keeps listening and does not reply | Press **M**: she answers what she has heard |
 | She looks alive but never answers | Must be a real Chrome window; check the Terminal window for errors |
 | "Blocked: read-only mode" | You started with `npm start`; use the Desktop launcher |
 | She mishears or needs a loud voice | System Settings → Sound → Input → raise **Input volume** to about 75%. Press **D** to watch the mic level |

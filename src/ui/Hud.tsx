@@ -146,8 +146,9 @@ function DecodeText({ text }: { text: string }) {
 
 /* --------------------------------------------------------------------- hud */
 
-export function Hud() {
+export function Hud({ onToggleMic }: { onToggleMic: () => void }) {
   const phase = useStore((s) => s.phase)
+  const micPaused = useStore((s) => s.micPaused)
   const caption = useStore((s) => s.caption)
   const turns = useStore((s) => s.turns)
   const activeTool = useStore((s) => s.activeTool)
@@ -202,7 +203,11 @@ export function Hud() {
                 the right thing to show during boot — as a general fallback a
                 note that never got cleared (a stuck 'voice 97%') sits over
                 LISTENING and PROCESSING for the rest of the session. */}
-            {phase === 'boot' && bootNote ? bootNote : statusText[phase]}
+            {phase === 'boot' && bootNote
+              ? bootNote
+              : micPaused
+                ? 'MIC PAUSED — PRESS M'
+                : statusText[phase]}
           </span>
         </div>
       </header>
@@ -312,7 +317,11 @@ export function Hud() {
 
       <footer className="hud-bottom">
         <span className="hint">
-          say <b>“hey friday”</b> · <kbd>Space</kbd> to talk · <kbd>G</kbd> hands
+          say <b>“hey friday”</b> · <kbd>Space</kbd> to talk ·{' '}
+          <button className="mic-toggle" onClick={onToggleMic} aria-pressed={micPaused}>
+            <kbd>M</kbd> {micPaused ? 'mic paused — resume' : 'pause mic'}
+          </button>{' '}
+          · <kbd>G</kbd> hands
           {voice && (
             <>
               {' · '}

@@ -76,7 +76,8 @@ FRIDAY picks it automatically.
 ## Hearing
 
 Speech is transcribed on your Mac by **Whisper** (`hands/stt_worker.py`), with
-no key and nothing sent anywhere. The browser boosts the microphone 4× first
+no key and nothing sent anywhere. On Apple Silicon it runs on the GPU through
+MLX, at under a second a sentence; elsewhere it falls back to the CPU. The browser boosts the microphone 4× first
 (`src/lib/vad.ts`), and the model is primed for Indian English and accounting
 vocabulary. Detection runs on the audio clock, so she keeps hearing you while
 Chrome is behind another window. An ElevenLabs key switches this to Scribe; if
@@ -137,8 +138,8 @@ at the next bridge start. Then add it to `HANDS_FREE` or `HANDS_READ` in
 
 | Variable | Default | Effect |
 |---|---|---|
-| `FRIDAY_MODEL` | `claude-opus-5-5` | Model the brain runs |
-| `FRIDAY_EFFORT` | `high` | Reasoning effort |
+| `FRIDAY_MODEL` | `claude-sonnet-5-5` | Model the brain runs. `claude-opus-5-5` for harder work, but slower |
+| `FRIDAY_EFFORT` | `low` | Reasoning effort. Higher is slower |
 | `FRIDAY_ALLOW_WRITES` | off | `1` allows effectful tools |
 | `FRIDAY_BRIDGE_PORT` | `8787` | Bridge port |
 | `FRIDAY_WHISPER_MODEL` | `small.en` | Local speech model; `base.en` is faster, `medium.en` more accurate |
@@ -151,7 +152,8 @@ Frontend options live in `.env.local` — see `.env.example`.
 
 | Key | Does |
 |---|---|
-| **Space** | Talk without the wake word |
+| **Space** | Talk without the wake word, or cut her off |
+| **M** | Pause or resume the microphone. Pausing also sends what she has heard, right now |
 | **V** | Cycle the browser voice |
 | **Escape** | Stand down |
 | **D** | Diagnostics |
